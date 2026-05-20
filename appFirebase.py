@@ -101,10 +101,13 @@ def get_mesures():
 
     return pd.DataFrame(data)
 
-@app.get("/", response_class=HTMLResponse)
-def home(request: Request):
-   #from fastapi import FastAPI
+@app.get("/")
+#@app.get("/", response_class=HTMLResponse)
+async def root():
     return {"message": "API OK"}
+#def home(request: Request):
+   #from fastapi import FastAPI
+ #   return {"message": "API OK"}
 
    #templates.TemplateResponse(
     #"home.html",
