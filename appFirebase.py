@@ -32,9 +32,7 @@ print("BASE_DIR =", BASE_DIR)
 print("TEMPLATES_DIR =", TEMPLATES_DIR)
 print("EXISTS =", os.path.exists(TEMPLATES_DIR))
 print("FILES =", os.listdir(TEMPLATES_DIR) if os.path.exists(TEMPLATES_DIR) else "NO DIR")
-templates = Jinja2Templates(
-    directory=TEMPLATES_DIR
-)
+templates = Jinja2Templates(directory="templates")
 print("SERVER STARTED")
 SEUILS = {
     "pm25": 35,
