@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Analyse Apriori - Qualité de l'Air</title>
+
+<!-- CSS externes -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.5/css/jquery.dataTables.min.css">
+<link rel="stylesheet" href="https://cdn.plot.ly/plotly-latest.min.css">
+
+<!-- JS externes -->
+<script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.5/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+<style>
+body {
+  font-family: 'Poppins', Arial, sans-serif;
+  color: #fff;
+  text-align: center;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  transition: background-color 1s;
+  background: #0b1220;
+}
+
+/* HEADER */
+header {
+  padding: 25px;
+  font-size: 1.8em;
+  font-weight: 700;
+  text-shadow: 2px 2px 10px rgba(0,0,0,0.5);
+  background: linear-gradient(90deg, #0ea5e9, #22c55e);
+  color: #fff;
+}
+
+/* NAV */
+nav {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  background: rgba(17, 24, 39, 0.95);
+  padding: 12px 0;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+nav a {
+  color: #cbd5e1;
+  text-decoration: none;
+  font-weight: 600;
+  padding: 8px 15px;
+  border-radius: 8px;
+  transition: 0.3s;
+}
+
+nav a:hover {
+  background: #38bdf8;
+  color: #0b1220;
+}
+
+/* GAUGES */
+.gauges-container {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin: 30px auto;
+  gap: 20px;
+  padding: 10px;
+}
+
+.gauge-box {
+  width: 200px;
+  height: 160px;
+  background: rgba(30, 41, 59, 0.9);
+  margin: 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  border-radius: 16px;
+  transition: 0.3s;
+  color: #fff;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+}
+
+.gauge-box:hover {
+  transform: translateY(-5px);
+}
+
+.gauge-box .bar {
+  width: 85%;
+  height: 14px;
+  background-color: rgba(255,255,255,0.15);
+  border-radius: 10px;
+  margin-top: 10px;
+  overflow: hidden;
+}
+
+.gauge-box .bar-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 10px;
+  transition: width 1s, background-color 1s;
+}
+
+/* SECTION */
+section {
+  margin: 25px auto;
+  max-width: 1200px;
+  background: rgba(30, 41, 59, 0.85);
+  padding: 20px;
+  border-radius: 16px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+}
+
+h2 {
+  text-align: left;
+  margin-bottom: 15px;
+  color: #38bdf8;
+}
+
+/* SCROLL TEXT */
+.scrolling-text-container {
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.scrolling-text {
+  display: inline-block;
+  font-size: 38px;
+  color: #22c55e;
+  animation: scroll-left 15s linear infinite;
+}
+
+@keyframes scroll-left {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
+
+/* BUTTONS */
+button {
+  margin: 10px;
+  padding: 10px 15px;
+  font-size: 14px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  background: linear-gradient(90deg, #0ea5e9, #22c55e);
+  color: #fff;
+  font-weight: 600;
+  transition: 0.3s;
+}
+
+button:hover {
+  transform: scale(1.05);
+}
+
+/* DATATABLES */
+.dataTables_wrapper {
+  color: #000;
+  background: #fff;
+  border-radius: 10px;
+  padding: 10px;
+}
+
+/* MINI GRAPH */
+.gauge-box .mini-graph {
+  width: 100%;
+  height: 50px;
+  margin-top: 5px;
+}
+</style>
+</head>
+
+<body>
+
+<header>Analyse des associations entre  polluants - Qualité de l'Air</header>
+
+<nav>
+  <a href="/">Accueil</a>
+  <a href="/gauges">Ecran live</a>
+  <a href="/apriori">Apriori</a>
+  <a href="/rapport">Rapport</a>
+</nav>
+
+<!-- Rectangles de polluants avec mini-graph -->
+<div class="gauges-container" id="polluants-container">
+  {% for pol, val in dernieres_mesures.items() %}
+    <div class="gauge-box" id="pollutant-{{ pol }}">
+      <div>{{ pol | upper }}</div>
+      <div class="value">{{ val }}</div>
+      <div class="bar"><div class="bar-fill"></div></div>
+      <div class="mini-graph" id="mini-graph-{{ pol }}"></div>
+    </div>
+  {% endfor %}
+</div>
+
+<!-- Polluant influent -->
+<section>
+  <div class="scrolling-text-container">
+    <h2 class="scrolling-text">
+      Polluant influent : {{ polluant_influent | upper if polluant_influent else "N/A" }}
+    </h2>
+  </div>
+  <p>Les métriques sont calculées pour toutes les règles extraites via Apriori.</p>
+  <button onclick="downloadCSV('dataset')">Télécharger Dataset (CSV)</button>
+  <button onclick="downloadCSV('rules')">Télécharger Metrics (CSV)</button>
+</section>
+
+<!-- Dataset Table -->
+<section>
+<h2>Dataset transformé (1 = dépassement, 0 = sous seuil)</h2>
+<table id="dataset_table" class="display" style="width:100%"></table>
+</section>
+
+<!-- Metrics Table -->
+<section>
+<h2>Règles Apriori et metrics</h2>
+<table id="rules_table" class="display" style="width:100%"></table>
+</section>
+<img src="/static/apriori_network.png" width="100%">
+
+<!-- Graphiques -->
+<section>
+<h2>Visualisation des règles</h2>
+<div id="bar_chart" style="width:100%;height:400px;"></div>
+<div id="heatmap" style="width:100%;height:400px;margin-top:30px;"></div>
+</section>
+
+<script>
+// --------------------
+// Données côté client
+let dernieres_mesures_js = {{ dernieres_mesures | tojson | safe }};
+const seuils_js = {{ seuils | tojson | safe }};
+const dataset = {{ dataset | tojson | safe }};
+const rules_raw = {{ rules | tojson | safe }};
+console.log("DATASET =", dataset);
+console.log("RULES =", rules_raw);
+const polluant = "{{ polluant_influent }}";
+
+// Arrondir metrics à 2 décimales
+const rules = rules_raw.map(r => {
+  const r_copy = {...r};
+  ['support','confidence','lift','leverage','conviction'].forEach(m => {
+    if(r_copy[m] !== undefined) r_copy[m] = parseFloat(r_copy[m].toFixed(2));
+  });
+  return r_copy;
+});
+
+// Couleur selon valeur et seuil (niveau d’alerte)
+function statusColor(val, seuil){
+
+  if(val > seuil * 2){
+    return "#d9534f"; // rouge
+  }
+
+  if(val > seuil){
+    return "#f0ad4e"; // orange
+  }
+
+  return "#5cb85c"; // vert
+}
+
+// Historique polluants
+const historyLength = 10;
+let polluantsHistory = {};
+for(const pol in dernieres_mesures_js){
+    polluantsHistory[pol] = Array(historyLength).fill(dernieres_mesures_js[pol]);
+}
+
+// Mise à jour des rectangles + mini-graph + background adaptatif
+function updatePolluants(data){
+  let maxAlertLevel = 0; // 0=vert,1=orange,2=rouge
+  for(const pol in data){
+    const val = data[pol];
+    const box = document.getElementById("pollutant-" + pol);
+    if(box){
+      const color = statusColor(val, seuils_js[pol]);
+      box.style.backgroundColor = color;
+      box.querySelector(".value").textContent = val.toFixed(1);
+
+      // Barre de progression
+      const fill = box.querySelector(".bar-fill");
+      let pct = Math.min(val/(seuils_js[pol] * 2) * 100,100);
+      fill.style.width = pct + "%";
+      fill.style.backgroundColor = color;
+
+      // Animation pulse
+      box.style.transform = "scale(1.05)";
+      setTimeout(()=>box.style.transform="scale(1)",300);
+
+      // Historique
+      polluantsHistory[pol].push(val);
+      if(polluantsHistory[pol].length>historyLength) polluantsHistory[pol].shift();
+
+      // Mini-graph
+      const miniGraphDiv = document.getElementById("mini-graph-" + pol);
+      Plotly.newPlot(miniGraphDiv,[{
+        x: Array.from({length: polluantsHistory[pol].length}, (_,i)=>i+1),
+        y: polluantsHistory[pol],
+        mode:'lines+markers',
+        line:{color:'#ffffff'},
+        marker:{size:4,color:'#ffdd00'}
+      }],{
+        margin:{t:0,b:0,l:0,r:0},
+        paper_bgcolor:'rgba(0,0,0,0)',
+        plot_bgcolor:'rgba(0,0,0,0)',
+        xaxis:{visible:false},
+        yaxis:{visible:false,range:[ 0,
+        Math.max(
+            seuils_js[pol] * 2,
+            ...polluantsHistory[pol]
+        )
+    ]
+}
+      }, {displayModeBar:false});
+
+      // Déterminer le niveau d'alerte global pour l'arrière-plan
+      if((val > seuils_js[pol] * 2)) maxAlertLevel = Math.max(maxAlertLevel, 2);
+      else if(val > seuils_js[pol]) maxAlertLevel = Math.max(maxAlertLevel, 1);
+    }
+  }
+
+  // Couleur d'arrière-plan adaptative
+  if(maxAlertLevel===2) document.body.style.backgroundColor = "#6e1414"; // rouge sombre
+  else if(maxAlertLevel===1) document.body.style.backgroundColor = "#7a4e12"; // orange sombre
+  else document.body.style.backgroundColor = "#1f3f1f"; // vert sombre
+}
+
+// Premier affichage
+updatePolluants(dernieres_mesures_js);
+
+// Rafraîchissement toutes les 30s via API
+setInterval(async ()=>{
+  try{
+    const resp = await fetch("/api/dernieres_mesures");
+    const data = await resp.json();
+    dernieres_mesures_js = data;
+    updatePolluants(dernieres_mesures_js);
+  }catch(err){
+    console.error("Erreur rafraîchissement :", err);
+  }
+},30000);
+
+// Dataset DataTable
+if(dataset.length > 0){
+
+$('#dataset_table').DataTable({
+  data: dataset,
+  columns: Object.keys(dataset[0]).map(k => ({
+      title:k.toUpperCase(),
+      data:k
+  })),
+  pageLength:10
+});
+
+}
+
+// Rules DataTable
+if(rules.length > 0){
+
+$('#rules_table').DataTable({
+  data: rules,
+  columns: Object.keys(rules[0]).map(k => ({
+      title:k.toUpperCase(),
+      data:k
+  })),
+  pageLength:10
+});
+
+}
+
+// Graphiques Plotly
+function plotGraphs(){
+  let antecedents = [];
+  rules.forEach(r => r.antecedents.forEach(a => antecedents.push(a)));
+  let counts = {};
+  antecedents.forEach(a => counts[a] = (counts[a]||0)+1);
+  Plotly.newPlot('bar_chart',[{
+    x: Object.keys(counts),
+    y: Object.values(counts),
+    type:'bar',
+    marker:{color:'#00ccff'}
+  }],{title:'Fréquence des Antecedents'});
+
+  let x=[], y=[], z=[];
+  rules.forEach(r=>{
+    r.antecedents.forEach(a=>{
+      r.consequents.forEach(c=>{
+        x.push(a); y.push(c); z.push(r.lift);
+      });
+    });
+  });
+  Plotly.newPlot('heatmap',[{x:x, y:y, z:z, type:'heatmap', colorscale:'Viridis'}],
+                 {title:'Heatmap Antecedent → Consequent'});
+}
+console.log("Dataset =", dataset);
+console.log("Rules =", rules);
+console.log("Mesures =", dernieres_mesures_js);
+plotGraphs();
+
+// Téléchargement CSV
+function downloadCSV(type){
+  let data, filename;
+  if(type==='dataset'){ data=dataset; filename='dataset.csv'; }
+  else { data=rules; filename='metrics.csv'; }
+
+  let csv = '';
+  const keys = Object.keys(data[0]||{});
+  csv += keys.join(',')+'\n';
+  data.forEach(row=>{
+    csv += keys.map(k=>row[k]).join(',')+'\n';
+  });
+
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+</script>
+
+</body>
+</html>

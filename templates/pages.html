@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Dashboard Qualité de l’Air</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+<style>
+body { font-family: Arial, sans-serif; background:#f4f6f9; text-align:center; }
+h1 { margin-top:20px; }
+.gauges {
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:space-around;
+  margin-top:30px;
+}
+.gauge-container {
+  width:30%;
+  min-width:280px;
+  height:320px;
+  margin-bottom:20px;
+}
+.status { margin-top:30px; font-size:32px; font-weight:bold; }
+.substatus { font-size:22px; margin-top:10px; }
+#map { height:400px; margin:20px; border-radius:8px; }
+</style>
+</head>
+
+<body>
+
+<h1>Surveillance de la Qualité de l’Air</h1>
+
+<div class="gauges">
+  <div id="pm25_gauge" class="gauge-container"></div>
+  <div id="pm10_gauge" class="gauge-container"></div>
+  <div id="co2_gauge" class="gauge-container"></div>
+  <div id="nox_gauge" class="gauge-container"></div>
+  <div id="sox_gauge" class="gauge-container"></div>
+  <div id="nhx_gauge" class="gauge-container"></div>
+</div>
+
+<div class="status">{{ status_global }}</div>
+
+<div class="substatus">
+Polluant influent :
+<strong>
+{{ polluant_influent.upper() if polluant_influent else "N/A" }}
+</strong>
+</div>
+
+<h2>Localisation du capteur</h2>
+<div id="map"></div>
+
+<h2>Rapport détaillé</h2>
+<ul style="list-style:none; padding:0;">
+{% for pol, val in dernieres_mesures.items() %}
+<li style="font-size:18px; margin:6px 0;">
+  {{ pol.upper() }} : {{ "%.2f"|format(val) }}
+  {% if pol in depassements %}
+    <strong style="color:red;"> (Dépassement)</strong>
+  {% endif %}
+</li>
+{% endfor %}
+</ul>
+
+<script>
+/* ==========================
+   Données injectées par Jinja
+   ========================== */
+const mesures = {{ dernieres_mesures | tojson }};
+const lat = {{ lat | default(0) }};
+const lon = {{ lon | default(0) }};
+
+const MAX_VALUE = 5000;
+const seuils = {
+  pm25:[75,150], pm10:[150,300],
+  co2:[1000,2000], nox:[200,400],
+  sox:[100,200], nhx:[50,100]
+};
+
+/* ==========================
+   Carte Leaflet (sécurisée)
+   ========================== */
+const map = L.map('map').setView(
+  [lat || 0, lon || 0], 13
+);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution:'© OpenStreetMap'
+}).addTo(map);
+
+L.circleMarker(
+  [lat || 0, lon || 0],
+  { radius:14, color:"blue", fillOpacity:0.85 }
+).addTo(map);
+
+/* ==========================
+   Jauges Plotly
+   ========================== */
+function gaugeColor(val, seuil){
+  if(val > seuil[1]) return "red";
+  if(val > seuil[0]) return "orange";
+  return "green";
+}
+
+function drawGauge(id, val, title, seuil){
+  Plotly.newPlot(
+    id,
+    [{
+      type:"indicator",
+      mode:"gauge+number",
+      value: val,
+      title:{ text:title.toUpperCase() },
+      gauge:{
+        axis:{ range:[0, MAX_VALUE] },
+        bar:{ color:gaugeColor(val, seuil) }
+      }
+    }],
+    { margin:{ t:20, b:20 } }
+  );
+}
+
+for(const p in seuils){
+  drawGauge(
+    p + "_gauge",
+    mesures[p] || 0,
+    p,
+    seuils[p]
+  );
+}
+
+/* ==========================
+   Rafraîchissement auto
+   ========================== */
+setTimeout(() => location.reload(), 30000);
+</script>
+
+</body>
+</html>

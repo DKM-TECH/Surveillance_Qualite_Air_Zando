@@ -1,0 +1,16 @@
+fastapi
+uvicorn
+jinja2
+pandas
+firebase-admin
+mlxtend
+networkx
+matplotlib
+reportlab
+python-multipart
+numpy
+scikit-learn
+scipy
+uvicorn[standard]
+python-multipart
+gunicorn

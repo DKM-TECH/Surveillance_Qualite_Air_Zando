@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Surveillance Air</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+    <style>
+
+        *{
+            margin:0;
+            padding:0;
+            box-sizing:border-box;
+            font-family:'Poppins',sans-serif;
+        }
+
+        body{
+            background:#0b1220;
+            color:white;
+        }
+
+        /* NAVBAR */
+        .navbar{
+            display:flex;
+            justify-content:center;
+            gap:20px;
+            padding:20px;
+            background:#111827;
+        }
+
+        .navbar a{
+            color:white;
+            text-decoration:none;
+            font-weight:600;
+        }
+
+        .navbar a:hover{
+            color:#38bdf8;
+        }
+
+        h1{
+            text-align:center;
+            margin-top:30px;
+            color:#38bdf8;
+        }
+
+        .etat{
+            width:300px;
+            margin:30px auto;
+            padding:20px;
+            text-align:center;
+            border-radius:12px;
+            font-size:28px;
+            font-weight:bold;
+            background:#28a745;
+        }
+
+        .message{
+            text-align:center;
+            margin-bottom:30px;
+            color:#cbd5e1;
+        }
+
+        .gauges{
+            display:grid;
+            grid-template-columns:repeat(auto-fit,minmax(320px,1fr));
+            gap:20px;
+            padding:40px;
+        }
+
+        .card{
+            background:#1e293b;
+            border-radius:15px;
+            padding:20px;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+    <!-- NAVBAR -->
+    <div class="navbar">
+        <a href="/">Accueil</a>
+        <a href="/gauges">Ecran live</a>
+        <a href="/apriori">Apriori</a>
+        <a href="/rapport">Rapport</a>
+    </div>
+
+    <h1>Qualité de l’air</h1>
+
+    <div class="etat">
+        {{ etat }}
+    </div>
+
+    <div class="message">
+        {{ message }}
+    </div>
+
+    <div class="gauges">
+
+        {% for pol, val in mesures.items() %}
+
+        <div class="card">
+            <div id="{{ pol }}_gauge"></div>
+        </div>
+
+        {% endfor %}
+
+    </div>
+
+<script>
+
+const mesures = {{ mesures | tojson }};
+const seuils = {{ seuils | tojson }};
+
+function couleur(val, seuil){
+
+    if(val > seuil * 2)
+        return "red";
+
+    if(val > seuil)
+        return "orange";
+
+    return "green";
+}
+
+for (const pol in mesures) {
+
+    Plotly.newPlot(
+        pol + "_gauge",
+
+        [{
+            type: "indicator",
+            mode: "gauge+number",
+
+            value: mesures[pol],
+
+            title: {
+                text: pol.toUpperCase()
+            },
+
+            gauge: {
+
+                axis: {
+                    range: [0, 5000]
+                },
+
+                bar: {
+                    color: couleur(
+                        mesures[pol],
+                        seuils[pol]
+                    )
+                }
+            }
+        }]
+    );
+}
+
+</script>
+
+</body>
+</html>

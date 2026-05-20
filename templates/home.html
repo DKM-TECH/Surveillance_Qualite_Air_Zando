@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <title>
+        {% block title %}
+        IoT Smart Monitoring
+        {% endblock %}
+    </title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- GOOGLE FONT -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- FONT AWESOME -->
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+    <style>
+
+        *{
+            margin:0;
+            padding:0;
+            box-sizing:border-box;
+            font-family:'Poppins',sans-serif;
+        }
+
+        body{
+            background:#0f172a;
+            color:white;
+            overflow-x:hidden;
+        }
+
+        /* ================= NAVBAR ================= */
+
+        .navbar{
+
+            width:100%;
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+
+            padding:18px 40px;
+
+            background:#111827;
+
+            position:sticky;
+            top:0;
+            z-index:1000;
+
+            box-shadow:0 4px 20px rgba(0,0,0,0.4);
+        }
+
+        .logo{
+            font-size:22px;
+            font-weight:700;
+            color:#38bdf8;
+        }
+
+        .nav-links{
+            display:flex;
+            gap:18px;
+        }
+
+        .nav-links a{
+
+            text-decoration:none;
+            color:white;
+            font-weight:500;
+
+            transition:0.3s;
+
+            padding:8px 14px;
+            border-radius:8px;
+        }
+
+        .nav-links a:hover{
+            background:#38bdf8;
+            color:#0f172a;
+        }
+
+        /* ================= HERO ================= */
+
+        .hero{
+
+            position:relative;
+
+            height:90vh;
+
+            background:
+                linear-gradient(
+                    rgba(0,0,0,0.7),
+                    rgba(0,0,0,0.7)
+                ),
+                url('/static/grand_marche_1.jpg');
+
+            background-size:cover;
+            background-position:center;
+
+            display:flex;
+            justify-content:center;
+            align-items:center;
+
+            text-align:center;
+        }
+
+        .hero-content{
+            max-width:900px;
+            padding:20px;
+        }
+
+        .hero h1{
+
+            font-size:58px;
+            margin-bottom:20px;
+
+            color:#38bdf8;
+        }
+
+        .hero p{
+
+            font-size:20px;
+            line-height:1.9;
+
+            color:#e2e8f0;
+        }
+
+        /* ================= SECTION ================= */
+
+        .section{
+            padding:70px 40px;
+        }
+
+        .section-title{
+
+            text-align:center;
+
+            font-size:38px;
+
+            margin-bottom:50px;
+
+            color:#38bdf8;
+        }
+
+        /* ================= CARDS ================= */
+
+        .cards{
+
+            display:grid;
+
+            grid-template-columns:
+                repeat(auto-fit,minmax(280px,1fr));
+
+            gap:25px;
+        }
+
+        .card{
+
+            background:#1e293b;
+
+            padding:30px;
+
+            border-radius:18px;
+
+            transition:0.3s;
+
+            box-shadow:0 8px 20px rgba(0,0,0,0.3);
+        }
+
+        .card:hover{
+
+            transform:translateY(-8px);
+
+            background:#273449;
+        }
+
+        .card i{
+
+            font-size:35px;
+
+            color:#38bdf8;
+
+            margin-bottom:15px;
+        }
+
+        .card h3{
+
+            margin-bottom:15px;
+
+            font-size:22px;
+        }
+
+        .card p{
+
+            color:#cbd5e1;
+
+            line-height:1.8;
+
+            font-size:15px;
+        }
+
+        /* ================= GALERIE ================= */
+
+        .market-gallery{
+
+            display:grid;
+
+            grid-template-columns:
+                repeat(auto-fit,minmax(320px,1fr));
+
+            gap:30px;
+
+            margin-top:30px;
+        }
+
+        .market-card{
+
+            background:#1e293b;
+
+            border-radius:20px;
+
+            overflow:hidden;
+
+            box-shadow:0 8px 20px rgba(0,0,0,0.4);
+
+            transition:0.3s;
+        }
+
+        .market-card:hover{
+            transform:translateY(-8px);
+        }
+
+        .market-card img{
+
+            width:100%;
+            height:280px;
+
+            object-fit:cover;
+        }
+
+        .market-text{
+            padding:25px;
+        }
+
+        .market-text h3{
+
+            color:#38bdf8;
+
+            margin-bottom:10px;
+        }
+
+        .market-text p{
+
+            color:#cbd5e1;
+
+            line-height:1.8;
+        }
+
+        /* ================= MANUEL ================= */
+
+        .manual{
+
+            background:#111827;
+
+            border-radius:20px;
+
+            padding:40px;
+
+            line-height:2;
+
+            color:#e2e8f0;
+
+            box-shadow:0 8px 25px rgba(0,0,0,0.3);
+        }
+
+        .manual h3{
+
+            color:#38bdf8;
+
+            margin-top:25px;
+            margin-bottom:10px;
+        }
+
+        /* ================= CONCEPTEUR ================= */
+
+        .creator-section{
+
+            margin-top:70px;
+
+            display:flex;
+
+            justify-content:center;
+        }
+
+        .creator-card{
+
+            background:#1e293b;
+
+            padding:20px;
+
+            border-radius:18px;
+
+            width:320px;
+
+            text-align:center;
+
+            box-shadow:0 8px 20px rgba(0,0,0,0.4);
+        }
+
+        .creator-card img{
+
+            width:120px;
+            height:120px;
+
+            object-fit:cover;
+
+            border-radius:50%;
+
+            border:4px solid #38bdf8;
+
+            margin-bottom:15px;
+        }
+
+        .creator-card h3{
+
+            color:#38bdf8;
+
+            margin-bottom:8px;
+        }
+
+        .creator-card p{
+
+            color:#cbd5e1;
+
+            font-size:14px;
+
+            line-height:1.7;
+        }
+
+        /* ================= FOOTER ================= */
+
+        footer{
+
+            margin-top:50px;
+
+            text-align:center;
+
+            padding:30px;
+
+            background:#111827;
+
+            color:#94a3b8;
+        }
+
+        /* ================= RESPONSIVE ================= */
+
+        @media(max-width:768px){
+
+            .hero h1{
+                font-size:38px;
+            }
+
+            .hero p{
+                font-size:16px;
+            }
+
+            .navbar{
+
+                flex-direction:column;
+
+                gap:15px;
+            }
+
+            .nav-links{
+
+                flex-wrap:wrap;
+
+                justify-content:center;
+            }
+
+            .section{
+                padding:50px 20px;
+            }
+
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+    <!-- NAVBAR -->
+
+    <nav class="navbar">
+
+        <div class="logo">
+
+            <i class="fas fa-microchip"></i>
+
+            IoT Smart Monitoring
+
+        </div>
+
+        <div class="nav-links">
+
+            <a href="/">
+                <i class="fas fa-home"></i>
+                Accueil
+            </a>
+
+            <a href="/gauges">
+                <i class="fas fa-gauge-high"></i>
+                Live
+            </a>
+
+            <a href="/apriori">
+                <i class="fas fa-project-diagram"></i>
+                Apriori
+            </a>
+
+            <a href="/rapport">
+                <i class="fas fa-chart-line"></i>
+                Rapport
+            </a>
+
+        </div>
+
+    </nav>
+
+    {% block content %}
+
+    <!-- HERO -->
+
+    <section class="hero">
+
+        <div class="hero-content">
+
+            <h1>
+
+                Système Intelligent de Surveillance
+                de la Qualité de l’Air
+
+            </h1>
+
+            <p>
+
+                Plateforme IoT avancée intégrant ESP32,
+                Firebase, visualisation temps réel,
+                analyse des polluants, AQI intelligent,
+                Data Mining Apriori et tableaux de bord
+                interactifs pour le monitoring environnemental.
+
+            </p>
+
+        </div>
+
+    </section>
+
+    <!-- GRAND MARCHÉ -->
+
+    <section class="section">
+
+        <h2 class="section-title">
+
+            Grand Marché de Kinshasa
+
+        </h2>
+
+        <p style="
+            text-align:center;
+            max-width:900px;
+            margin:auto;
+            color:#cbd5e1;
+            line-height:1.9;
+            margin-bottom:40px;
+        ">
+
+            Le Grand Marché de Kinshasa représente
+            l’un des plus grands centres commerciaux
+            populaires de la République Démocratique du Congo.
+
+            Cette zone connaît une forte concentration
+            humaine, un trafic routier important ainsi
+            qu’une activité économique intense,
+            justifiant ainsi la surveillance intelligente
+            de la qualité de l’air.
+
+        </p>
+
+        <div class="market-gallery">
+
+            <div class="market-card">
+
+                <img src="/static/grand_marche_1.jpg">
+
+                <div class="market-text">
+
+                    <h3>
+                        Ancien Grand Marché
+                    </h3>
+
+                    <p>
+
+                        Vue historique du Grand Marché
+                        de Kinshasa avant la modernisation
+                        de l’infrastructure.
+
+                    </p>
+
+                </div>
+
+            </div>
+
+            <div class="market-card">
+
+                <img src="/static/grand_marche_2.jpg">
+
+                <div class="market-text">
+
+                    <h3>
+                        Nouveau Grand Marché
+                    </h3>
+
+                    <p>
+
+                        Infrastructure moderne du Grand
+                        Marché actuellement en développement
+                        à Kinshasa.
+
+                    </p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+    <!-- FONCTIONNALITÉS -->
+
+    <section class="section">
+
+        <h2 class="section-title">
+
+            Fonctionnalités du système
+
+        </h2>
+
+        <div class="cards">
+
+            <div class="card">
+
+                <i class="fas fa-wifi"></i>
+
+                <h3>Acquisition IoT</h3>
+
+                <p>
+
+                    Collecte des données environnementales
+                    via ESP32 et transmission temps réel
+                    vers Firebase Firestore.
+
+                </p>
+
+            </div>
+
+            <div class="card">
+
+                <i class="fas fa-gauge-high"></i>
+
+                <h3>Surveillance Live</h3>
+
+                <p>
+
+                    Affichage instantané des polluants
+                    grâce aux jauges dynamiques interactives.
+
+                </p>
+
+            </div>
+
+            <div class="card">
+
+                <i class="fas fa-chart-line"></i>
+
+                <h3>Rapports intelligents</h3>
+
+                <p>
+
+                    Génération automatique des statistiques,
+                    historiques journaliers et mensuels.
+
+                </p>
+
+            </div>
+
+            <div class="card">
+
+                <i class="fas fa-project-diagram"></i>
+
+                <h3>Algorithme Apriori</h3>
+
+                <p>
+
+                    Découverte des associations fréquentes
+                    entre polluants grâce au Data Mining.
+
+                </p>
+
+            </div>
+
+            <div class="card">
+
+                <i class="fas fa-map-location-dot"></i>
+
+                <h3>Géolocalisation</h3>
+
+                <p>
+
+                    Localisation du capteur sur carte
+                    interactive avec Leaflet et OpenStreetMap.
+
+                </p>
+
+            </div>
+
+            <div class="card">
+
+                <i class="fas fa-brain"></i>
+
+                <h3>Intelligence artificielle</h3>
+
+                <p>
+
+                    Architecture prête pour Machine Learning,
+                    prédiction et analyse intelligente avancée.
+
+                </p>
+
+            </div>
+
+        </div>
+
+    </section>
+
+    <!-- MANUEL -->
+
+    <section class="section">
+
+        <h2 class="section-title">
+
+            Manuel utilisateur
+
+        </h2>
+
+        <div class="manual">
+
+            <h3>1. Accueil</h3>
+
+            <p>
+
+                La page d’accueil présente le système,
+                les fonctionnalités disponibles et
+                l’architecture générale du projet.
+
+            </p>
+
+            <h3>2. Écran Live</h3>
+
+            <p>
+
+                La page "Live" affiche les mesures
+                instantanées des capteurs sous forme
+                de jauges dynamiques.
+
+            </p>
+
+            <h3>3. Module Apriori</h3>
+
+            <p>
+
+                Cette section permet d’identifier
+                les associations fréquentes entre
+                polluants environnementaux.
+
+            </p>
+
+            <h3>4. Rapport intelligent</h3>
+
+            <p>
+
+                Génération automatique des rapports,
+                visualisation historique,
+                AQI global et statistiques.
+
+            </p>
+
+            <h3>5. Firebase Cloud</h3>
+
+            <p>
+
+                Toutes les données sont stockées
+                et synchronisées en temps réel
+                dans Firebase Firestore.
+
+            </p>
+
+        </div>
+
+        <!-- CONCEPTEUR -->
+
+        <div class="creator-section">
+
+            <div class="creator-card">
+
+                <img src="/static/donatien.jpg">
+
+                <h3>
+
+                    Donatien KADIMA
+
+                </h3>
+
+                <p>
+
+                    Concepteur du système intelligent IoT
+                    de surveillance environnementale basé
+                    sur FastAPI, Firebase, Data Mining
+                    et Intelligence Artificielle.
+
+                </p>
+
+            </div>
+
+        </div>
+
+    </section>
+
+    {% endblock %}
+
+    <!-- FOOTER -->
+
+    <footer>
+
+        © 2026 IoT Smart Monitoring —
+        Système intelligent de surveillance environnementale
+
+    </footer>
+
+</body>
+
+</html>
