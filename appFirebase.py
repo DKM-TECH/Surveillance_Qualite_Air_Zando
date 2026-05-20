@@ -28,6 +28,10 @@ app.mount(
     StaticFiles(directory=STATIC_DIR),
     name="static"
 )
+print("BASE_DIR =", BASE_DIR)
+print("TEMPLATES_DIR =", TEMPLATES_DIR)
+print("EXISTS =", os.path.exists(TEMPLATES_DIR))
+print("FILES =", os.listdir(TEMPLATES_DIR) if os.path.exists(TEMPLATES_DIR) else "NO DIR")
 templates = Jinja2Templates(
     directory=TEMPLATES_DIR
 )
@@ -551,7 +555,7 @@ def historique():
     
     daily = daily.sort_values("jour")
     monthly = monthly.sort_values("mois")
-    
+
     return {
         "journalier": daily.to_dict(orient="records"),
         "mensuel": monthly.to_dict(orient="records")
