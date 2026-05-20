@@ -74,6 +74,64 @@ if not firebase_admin._apps:
     firebase_admin.initialize_app(cred)
 
 db = firestore.client()
+#def get_mesures():
+
+    #docs = db.collection("mesures").stream()
+
+    #data = []
+
+    #for doc in docs:
+
+        #d = doc.to_dict()
+
+        # Sécurisation champs
+        #for col in [
+        #   "pm25",
+        #    "pm10",
+         #   "co2",
+        #   "nox",
+        #  "sox",
+         #   "nhx",
+          #  "lat",
+         #   "lon"
+        #]:
+        #  try:
+         #       d[col] = float(d.get(col, 0) or 0)
+        #    except:
+       #         d[col] = 0
+
+      #  d["timestamp"] = str(d.get("timestamp", ""))
+
+     #   data.append(d)
+
+    #if not data:
+    #    return pd.DataFrame()
+    #df = pd.DataFrame(data)
+
+    # =========================
+    # MACHINE LEARNING TARGET
+    # =========================
+
+    # prochaine valeur PM2.5
+    #df["pm25_future"] = df["pm25"].shift(-1)
+
+    # suppression lignes invalides
+    #df = df.dropna()
+
+    # =========================
+    # EXPORT CSV
+    # =========================
+
+   # df.to_csv(
+    #    "dataset.csv",
+     #   index=False
+    #)
+
+    #print("DATASET GENERE")
+
+    #return df
+    #return pd.DataFrame(data)
+
 def get_mesures():
 
     docs = db.collection("mesures").stream()
@@ -107,7 +165,41 @@ def get_mesures():
     if not data:
         return pd.DataFrame()
 
-    return pd.DataFrame(data)
+    # =========================
+    # DATAFRAME
+    # =========================
+
+    df = pd.DataFrame(data)
+
+    # =========================
+    # TARGETS ML FUTURS
+    # =========================
+
+    for pol in [
+        "pm25",
+        "pm10",
+        "co2",
+        "nox",
+        "sox",
+        "nhx"
+    ]:
+        df[f"{pol}_future"] = df[pol].shift(-1)
+
+    # suppression NAN
+    df = df.dropna()
+
+    # =========================
+    # EXPORT CSV
+    # =========================
+
+    df.to_csv(
+        "dataset.csv",
+        index=False
+    )
+
+    print("DATASET GENERE")
+
+    return df
 
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
@@ -721,6 +813,68 @@ def dernieres_mesures():
     return {
         k: float(row.get(k, 0))
         for k in SEUILS
+    }
+
+#PREDICTION AVEC MACHINE LEARNING
+
+@app.get("/prediction", response_class=HTMLResponse)
+def prediction_page(request: Request):
+    return templates.TemplateResponse(
+        "prediction.html",
+        {"request": request}
+    )
+import joblib
+
+model = joblib.load("air_model.pkl")
+
+@app.get("/predict")
+def predict():
+
+    df = get_mesures()
+    if df.empty:
+        return {}
+
+    row = df.iloc[-1]
+
+    X = [[
+        row["pm25"],
+        row["pm10"],
+        row["co2"],
+        row["nox"],
+        row["sox"],
+        row["nhx"]
+    ]]
+
+    prediction = model.predict(X)[0]
+
+    return {
+        "pm25": float(prediction[0]),
+        "pm10": float(prediction[1]),
+        "co2": float(prediction[2]),
+        "nox": float(prediction[3]),
+        "sox": float(prediction[4]),
+        "nhx": float(prediction[5])
+    }
+
+@app.get("/api/realtime")
+def realtime():
+
+    df = get_mesures()
+
+    if df.empty:
+        return {}
+
+    df = df.sort_values(by="timestamp", ascending=True).tail(30)
+
+    return {
+        "labels": list(range(len(df))),
+
+        "pm25": df["pm25"].tolist(),
+        "pm10": df["pm10"].tolist(),
+        "co2": df["co2"].tolist(),
+        "nox": df["nox"].tolist(),
+        "sox": df["sox"].tolist(),
+        "nhx": df["nhx"].tolist()
     }
 
 if __name__ == "__main__":
