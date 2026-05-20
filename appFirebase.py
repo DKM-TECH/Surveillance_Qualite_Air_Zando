@@ -1,27 +1,36 @@
-from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse,FileResponse
-from fastapi.templating import Jinja2Templates
-#from fastapi.responses import HTMLResponse, FileResponse
+import os
 import pandas as pd
-from mlxtend.frequent_patterns import apriori, association_rules
+import networkx as nx
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 import firebase_admin
-from firebase_admin import credentials
+
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 
 from firebase_admin import credentials, firestore
-import networkx as nx
-import matplotlib.pyplot as plt
-import os
+
+from mlxtend.frequent_patterns import apriori, association_rules
 
 app = FastAPI()
-from fastapi.staticfiles import StaticFiles
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
+
+os.makedirs(STATIC_DIR, exist_ok=True)
 
 app.mount(
     "/static",
-    StaticFiles(directory=os.path.join(BASE_DIR, "static")),
+    StaticFiles(directory=STATIC_DIR),
     name="static"
 )
-templates = Jinja2Templates(directory="templates")
+templates = Jinja2Templates(
+    directory=TEMPLATES_DIR
+)
 print("SERVER STARTED")
 SEUILS = {
     "pm25": 35,
@@ -35,12 +44,6 @@ SEUILS = {
 # -------------------------
 # Firebase Configuration
 # -------------------------
-import os
-import firebase_admin
-from firebase_admin import credentials
-
-import os
-import firebase_admin
 from firebase_admin import credentials, firestore
 
 import os
@@ -90,7 +93,10 @@ def get_mesures():
             "lat",
             "lon"
         ]:
-            d[col] = float(d.get(col, 0))
+            try:
+                d[col] = float(d.get(col, 0) or 0)
+            except:
+                d[col] = 0
 
         d["timestamp"] = str(d.get("timestamp", ""))
 
@@ -104,7 +110,7 @@ def get_mesures():
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
 
-   templates.TemplateResponse(
+   return templates.TemplateResponse(
     "home.html",
     {"request": request}
 )
@@ -449,6 +455,8 @@ def plot_apriori_network(rules):
     )
 
     # colorbar lift
+    if not edge_colors:
+        return
     sm = plt.cm.ScalarMappable(
         cmap=plt.cm.viridis,
         norm=plt.Normalize(
@@ -459,9 +467,13 @@ def plot_apriori_network(rules):
     sm.set_array([])
 
     fig.colorbar(sm, ax=ax, label="Lift")
-
+    
     plt.tight_layout()
-    plt.savefig("static/apriori_network.png")
+
+    plt.savefig(
+    os.path.join(STATIC_DIR, "apriori_network.png")
+    )
+    #plt.savefig("static/apriori_network.png")
     plt.close()
 
 from collections import defaultdict
@@ -536,17 +548,17 @@ def historique():
     monthly = df.groupby("mois")[
         ["pm25","pm10","co2","nox","sox","nhx"]
     ].mean().reset_index()
-
+    
+    daily = daily.sort_values("jour")
+    monthly = monthly.sort_values("mois")
+    
     return {
         "journalier": daily.to_dict(orient="records"),
         "mensuel": monthly.to_dict(orient="records")
     }
 
 # Page Rapport
-#from fastapi import FastAPI, Request
-#from fastapi.responses import HTMLResponse, FileResponse
-#from fastapi.templating import Jinja2Templates
-#import pandas as pd
+
 from datetime import datetime
 import tempfile
 from reportlab.lib.pagesizes import A4
@@ -614,21 +626,22 @@ def rapport(request: Request):
 
     if df.empty:
         return templates.TemplateResponse(
-    "rapport.html",
-    {
-        "request": request,
-        "mesures": mesures,
-        "depassements": depassements,
-        "status": status,
-        "position": position,
-        "history": history,
-        "aqi_global": aqi_global,
-        "aqi_label": aqi_label,
-        "aqi_color": aqi_color,
-        "polluant_dominant": polluant_dominant,
-        "aqi_parts": aqi_parts
-    }
-)
+        "rapport.html",
+        {
+            "request": request,
+            "mesures": {},
+            "depassements": {},
+            "status": "Aucune donnée",
+            "position": None,
+            "history": {},
+            "aqi_global": 0,
+            "aqi_label": "N/A",
+            "aqi_color": "#999999",
+            "polluant_dominant": None,
+            "aqi_parts": {}
+        }
+    )
+
     last_row = df.iloc[0]
     mesures = last_row[["pm25","pm10","co2","nox","sox","nhx"]].to_dict()
     history = {
@@ -642,8 +655,14 @@ def rapport(request: Request):
 
     # --- Position ---
     position = None
-    if pd.notnull(last_row["lat"]) and pd.notnull(last_row["lon"]):
-        position = {"lat": float(last_row["lat"]), "lon": float(last_row["lon"])}
+    if "lat" in last_row and "lon" in last_row:
+        if pd.notnull(last_row["lat"]) and pd.notnull(last_row["lon"]):
+            position = {
+            "lat": float(last_row["lat"]),
+            "lon": float(last_row["lon"])
+        }
+   # if pd.notnull(last_row["lat"]) and pd.notnull(last_row["lon"]):
+    #    position = {"lat": float(last_row["lat"]), "lon": float(last_row["lon"])}
 
     # --- AQI multi-polluants ---
     aqi_parts = {}
@@ -681,4 +700,27 @@ def rapport(request: Request):
         "polluant_dominant": polluant_dominant,
         "aqi_parts": aqi_parts
     }
-)
+ )
+@app.get("/api/dernieres_mesures")
+def dernieres_mesures():
+
+    df = get_mesures()
+
+    if df.empty:
+        return {}
+
+    df = df.sort_values(
+        by="timestamp",
+        ascending=False
+    )
+
+    row = df.iloc[0]
+
+    return {
+        k: float(row.get(k, 0))
+        for k in SEUILS
+    }
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=10000)
