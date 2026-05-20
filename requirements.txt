@@ -1,7 +1,3 @@
-fastapi
-uvicorn
-jinja2
-pandas
 numpy
 matplotlib
 networkx
@@ -11,3 +7,8 @@ scikit-learn
 reportlab
 python-multipart
 aiofiles
+fastapi==0.110.0
+uvicorn==0.29.0
+jinja2==3.1.3
+starlette==0.36.3
+pandas
