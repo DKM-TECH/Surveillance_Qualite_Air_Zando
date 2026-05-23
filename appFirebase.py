@@ -984,18 +984,29 @@ def predict():
     try:
         pred = model.predict(X)[0]
 
-        return {
-            "pm25": float(pred[0]),
-            "pm10": float(pred[1]),
-            "co2": float(pred[2]),
-            "nox": float(pred[3]),
-            "sox": float(pred[4]),
-            "nhx": float(pred[5])
+        data_pred = {
+        "pm25": float(pred[0]),
+        "pm10": float(pred[1]),
+        "co2": float(pred[2]),
+        "nox": float(pred[3]),
+        "sox": float(pred[4]),
+        "nhx": float(pred[5])
         }
+        aqi, details = compute_global_aqi(data_pred)
+        status, alert = interpret_aqi(aqi)
+
+        return {
+            **data_pred,
+            "aqi": round(aqi, 2),
+            "status": status,
+            "alert": alert,
+            "details": details
+            }
 
     except Exception as e:
         return {"error": str(e)}
-    
+
+
 @app.get("/api/realtime")
 def realtime():
 
@@ -1015,6 +1026,52 @@ def realtime():
     "sox": df["sox"].fillna(0).astype(float).tolist(),
     "nhx": df["nhx"].fillna(0).astype(float).tolist()
 }
+
+#Pour l'intrepretation
+def pollutant_score(value, limit):
+    ratio = value / limit
+
+    if ratio <= 1:
+        return ratio * 50
+    elif ratio <= 2:
+        return 50 + (ratio - 1) * 50
+    elif ratio <= 3:
+        return 100 + (ratio - 2) * 50
+    elif ratio <= 4:
+        return 150 + (ratio - 3) * 50
+    else:
+        return 300
+
+def compute_global_aqi(data):
+    OMS_SEUILS = {
+        "pm25": 15,
+        "pm10": 45,
+        "co2": 1000,
+        "nox": 25,
+        "sox": 40,
+        "nhx": 10
+    }
+
+    scores = {}
+
+    for pol, limit in OMS_SEUILS.items():
+        if pol in data:
+            scores[pol] = pollutant_score(data[pol], limit)
+
+    return max(scores.values()), scores
+
+def interpret_aqi(aqi):
+    if aqi <= 50:
+        return "BON", "Air sain 😊"
+    elif aqi <= 100:
+        return "MODÉRÉ", "Acceptable mais prudence"
+    elif aqi <= 150:
+        return "MAUVAIS", "Masque conseillé 😷"
+    elif aqi <= 200:
+        return "DANGEREUX", "Masque obligatoire ⚠️"
+    else:
+        return "TRÈS DANGEREUX", "Éviter toute sortie 🚨"
+
 
 if __name__ == "__main__":
     import uvicorn
