@@ -220,6 +220,59 @@ def firestore_test():
 
     return data
 
+from fastapi.responses import JSONResponse
+#ROUTE API/LIVE
+@app.get("/api/live")
+async def api_live():
+
+    df = get_mesures()
+
+    mesures = {
+        "PM2.5": 0,
+        "PM10": 0,
+        "CO2": 0,
+        "NOx": 0,
+        "SOx": 0,
+        "NHx": 0
+    }
+
+    if df is not None and not df.empty:
+
+        try:
+
+            # prendre la dernière mesure
+            if "timestamp" in df.columns:
+
+                df = df.sort_values(
+                    by="timestamp",
+                    ascending=False
+                )
+
+            row = df.iloc[0]
+
+            correspondance = {
+                "PM2.5": "pm25",
+                "PM10": "pm10",
+                "CO2": "co2",
+                "NOx": "nox",
+                "SOx": "sox",
+                "NHx": "nhx"
+            }
+
+            for affichage, colonne in correspondance.items():
+
+                if colonne in row:
+
+                    mesures[affichage] = float(
+                        row.get(colonne, 0)
+                    )
+
+        except Exception as e:
+
+            print("API LIVE ERROR:", e)
+
+    return JSONResponse(content=mesures)
+
 @app.get("/test")
 def test():
     return {
@@ -232,50 +285,83 @@ def gauges(request: Request):
     df = get_mesures()
 
     mesures = {
-        "pm25": 0,
-        "pm10": 0,
-        "co2": 0,
-        "nox": 0,
-        "sox": 0,
-        "nhx": 0
+        "PM2.5": 0,
+        "PM10": 0,
+        "CO2": 0,
+        "NOx": 0,
+        "SOx": 0,
+        "NHx": 0
     }
 
-    seuils = SEUILS
+    seuils = {
+        "PM2.5": 50,
+        "PM10": 100,
+        "CO2": 1000,
+        "NOx": 200,
+        "SOx": 150,
+        "NHx": 100
+    }
 
     etat = "AIR INCONNU"
     message = "Pas de données"
 
-    # 🚨 PROTECTION IMPORTANTE
     if df is not None and not df.empty and "timestamp" in df.columns:
 
         try:
-            df = df.sort_values(by="timestamp", ascending=False)
+
+            df = df.sort_values(
+                by="timestamp",
+                ascending=False
+            )
+
             row = df.iloc[0]
 
-            for k in mesures:
-                if k in row:
-                    mesures[k] = float(row.get(k, 0))
+            correspondance = {
+                "PM2.5": "pm25",
+                "PM10": "pm10",
+                "CO2": "co2",
+                "NOx": "nox",
+                "SOx": "sox",
+                "NHx": "nhx"
+            }
+
+            for affichage, colonne in correspondance.items():
+
+                if colonne in row:
+                    mesures[affichage] = float(
+                        row.get(colonne, 0)
+                    )
 
             depassements = [
+
                 pol for pol in mesures
+
                 if mesures[pol] > seuils[pol]
             ]
 
             if len(depassements) >= 3:
+
                 etat = "DANGEREUX"
                 message = "⚠️ Pollution critique"
+
             elif len(depassements) > 0:
+
                 etat = "AIR POLLUÉ"
                 message = "Air dégradé"
+
             else:
+
                 etat = "AIR SAIN"
                 message = "Qualité normale"
 
         except Exception as e:
+
             print("GAUGES ERROR:", e)
 
     return templates.TemplateResponse(
+
         "gauges.html",
+
         {
             "request": request,
             "mesures": mesures,
@@ -284,7 +370,6 @@ def gauges(request: Request):
             "message": message
         }
     )
-
 # --------------------
 # Page Apriori
 # --------------------

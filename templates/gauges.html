@@ -109,7 +109,7 @@
         {% for pol, val in mesures.items() %}
 
         <div class="card">
-            <div id="{{ pol }}_gauge"></div>
+            <div id="{{ pol|replace('.', '_') }}_gauge"></div>
         </div>
 
         {% endfor %}
@@ -118,8 +118,14 @@
 
 <script>
 
-const mesures = {{ mesures | tojson }};
-const seuils = {{ seuils | tojson }};
+const seuils = {
+    "PM2.5": 50,
+    "PM10": 100,
+    "CO2": 1000,
+    "NOx": 200,
+    "SOx": 150,
+    "NHx": 100
+};
 
 function couleur(val, seuil){
 
@@ -132,37 +138,92 @@ function couleur(val, seuil){
     return "green";
 }
 
-for (const pol in mesures) {
+function afficherGauge(pol, val){
 
-    Plotly.newPlot(
-        pol + "_gauge",
+    const gaugeId =
+        pol.replace(".", "_") + "_gauge";
+
+    Plotly.react(
+
+        gaugeId,
 
         [{
             type: "indicator",
+
             mode: "gauge+number",
 
-            value: mesures[pol],
+            value: val,
 
             title: {
-                text: pol.toUpperCase()
+                text: pol
             },
 
             gauge: {
 
                 axis: {
-                    range: [0, 5000]
+                    range: [0, 2500]
                 },
 
                 bar: {
                     color: couleur(
-                        mesures[pol],
+                        val,
                         seuils[pol]
                     )
                 }
             }
-        }]
+        }],
+
+        {
+            paper_bgcolor:"#1e293b",
+
+            plot_bgcolor:"#1e293b",
+
+            font:{
+                color:"white"
+            },
+
+            margin:{
+                t:50,
+                b:20,
+                l:20,
+                r:20
+            },
+
+            responsive:true
+        }
     );
 }
+
+async function chargerDonnees(){
+
+    try{
+
+        const response = await fetch("/api/live");
+
+        const mesures = await response.json();
+
+        console.log(mesures);
+
+        for(const pol in mesures){
+
+            afficherGauge(
+                pol,
+                mesures[pol]
+            );
+        }
+
+    }catch(error){
+
+        console.log(error);
+    }
+}
+
+chargerDonnees();
+
+setInterval(
+    chargerDonnees,
+    2000
+);
 
 </script>
 
