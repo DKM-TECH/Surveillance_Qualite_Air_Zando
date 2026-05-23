@@ -959,39 +959,26 @@ def predict():
 
     df = get_history_mesures()
 
-    print("DF SIZE:", len(df))
-    print(df.head())
-    print(df.dtypes)
-
     if df.empty:
         return {"error": "no data"}
 
-    # conversion timestamp
     df["timestamp"] = df["timestamp"].apply(convert_timestamp)
 
-    # suppression invalides
-    df = df.dropna(subset=["pm25","pm10","co2","nox","sox","nhx"])
-    df = df.dropna(subset=["timestamp"])
+    df = df.dropna(subset=["pm25","pm10","co2","nox","sox","nhx","timestamp"])
 
-    if df.empty:
-        return {"error": "no valid data after cleaning"}
+    # ✔️ ordre chronologique correct
+    df = df.sort_values(by="timestamp", ascending=True)
 
-    # tri du plus récent
-    df = df.sort_values(by="timestamp", ascending=False)
-
-    # colonnes utilisées par le modèle
     cols = ["pm25","pm10","co2","nox","sox","nhx"]
 
-    # vérifier assez d’historique
-    if len(df) < 5:
-        return {"error": "not enough history (need at least 5 rows)"}
+    WINDOW = 5
 
-    # =========================
-    # WINDOW TEMPORELLE (NOUVEAU)
-    # =========================
-    window = df[cols].head(5).values.flatten()
+    if len(df) < WINDOW:
+        return {"error": "not enough data"}
 
-    # format pour le modèle
+    # fenêtre temporelle
+    window = df[cols].tail(WINDOW).values.flatten()
+
     X = [window]
 
     try:
@@ -1007,9 +994,7 @@ def predict():
         }
 
     except Exception as e:
-        return {
-            "error": str(e)
-        }
+        return {"error": str(e)}
     
 @app.get("/api/realtime")
 def realtime():
