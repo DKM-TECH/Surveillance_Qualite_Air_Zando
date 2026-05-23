@@ -946,7 +946,7 @@ def prediction_page(request: Request):
 import joblib
 
 try:
-    model = joblib.load("air_model.pkl")
+    model = joblib.load("air_model_timeseries.pkl")
 except:
     model = None
     print("⚠️ Model ML introuvable")
