@@ -385,139 +385,131 @@ const chart = new Chart(ctx, {
 
 
 // ======================= UPDATE =======================
+// ======================= UPDATE =======================
 
 async function updateChart(){
 
     try{
 
-        const realtimeResponse =
-            await fetch("/api/realtime");
+        const realtimeResponse = await fetch("/api/realtime");
+        const predictionResponse = await fetch("/predict");
 
-        const predictionResponse =
-            await fetch("/predict");
-
-        const data =
-            await realtimeResponse.json();
-
-        const prediction =
-            await predictionResponse.json();
+        const data = await realtimeResponse.json();
+        const prediction = await predictionResponse.json();
 
         console.log("REALTIME:", data);
         console.log("PREDICTION:", prediction);
 
-        if(!data.labels){
+        if(!data.labels || !prediction){
             return;
         }
 
-        // LABELS
+        // ===================== CHART DATA =====================
 
         chart.data.labels = data.labels;
 
-        // REAL DATA
+        chart.data.datasets[0].data = data.pm25.map(Number);
+        chart.data.datasets[1].data = data.pm10.map(Number);
+        chart.data.datasets[2].data = data.co2.map(Number);
+        chart.data.datasets[3].data = data.nox.map(Number);
+        chart.data.datasets[4].data = data.sox.map(Number);
+        chart.data.datasets[5].data = data.nhx.map(Number);
 
-        chart.data.datasets[0].data =
-            data.pm25.map(Number);
-
-        chart.data.datasets[1].data =
-            data.pm10.map(Number);
-
-        chart.data.datasets[2].data =
-            data.co2.map(Number);
-
-        chart.data.datasets[3].data =
-            data.nox.map(Number);
-
-        chart.data.datasets[4].data =
-            data.sox.map(Number);
-
-        chart.data.datasets[5].data =
-            data.nhx.map(Number);
-
-        // IA LINES
+        // IA LINES (flat line prediction)
 
         chart.data.datasets[6].data =
-            Array(data.labels.length)
-            .fill(Number(prediction.pm25));
+            Array(data.labels.length).fill(Number(prediction.pm25 || 0));
 
         chart.data.datasets[7].data =
-            Array(data.labels.length)
-            .fill(Number(prediction.pm10));
+            Array(data.labels.length).fill(Number(prediction.pm10 || 0));
 
         chart.data.datasets[8].data =
-            Array(data.labels.length)
-            .fill(Number(prediction.co2));
+            Array(data.labels.length).fill(Number(prediction.co2 || 0));
 
         chart.data.datasets[9].data =
-            Array(data.labels.length)
-            .fill(Number(prediction.nox));
+            Array(data.labels.length).fill(Number(prediction.nox || 0));
 
         chart.data.datasets[10].data =
-            Array(data.labels.length)
-            .fill(Number(prediction.sox));
+            Array(data.labels.length).fill(Number(prediction.sox || 0));
 
         chart.data.datasets[11].data =
-            Array(data.labels.length)
-            .fill(Number(prediction.nhx));
+            Array(data.labels.length).fill(Number(prediction.nhx || 0));
 
         chart.update();
 
-        // ================= PREDICTIONS =================
+        // ===================== CARDS =====================
 
-        document.getElementById("pred_pm25")
-            .innerHTML = Number(prediction.pm25).toFixed(2);
+        document.getElementById("pred_pm25").innerHTML =
+            Number(prediction.pm25 || 0).toFixed(2);
 
-        document.getElementById("pred_pm10")
-            .innerHTML = Number(prediction.pm10).toFixed(2);
+        document.getElementById("pred_pm10").innerHTML =
+            Number(prediction.pm10 || 0).toFixed(2);
 
-        document.getElementById("pred_co2")
-            .innerHTML = Number(prediction.co2).toFixed(2);
+        document.getElementById("pred_co2").innerHTML =
+            Number(prediction.co2 || 0).toFixed(2);
 
-        document.getElementById("pred_nox")
-            .innerHTML = Number(prediction.nox).toFixed(2);
+        document.getElementById("pred_nox").innerHTML =
+            Number(prediction.nox || 0).toFixed(2);
 
-        document.getElementById("pred_sox")
-            .innerHTML = Number(prediction.sox).toFixed(2);
+        document.getElementById("pred_sox").innerHTML =
+            Number(prediction.sox || 0).toFixed(2);
 
-        document.getElementById("pred_nhx")
-            .innerHTML = Number(prediction.nhx).toFixed(2);
+        document.getElementById("pred_nhx").innerHTML =
+            Number(prediction.nhx || 0).toFixed(2);
 
-        // ================= ALERT =================
+        // ===================== AQI + ALERT =====================
 
-        const alertBox =
-            document.getElementById("alertBox");
+        const alertBox = document.getElementById("alertBox");
 
-        if(
-            prediction.pm25 > 35 ||
-            prediction.pm10 > 50 ||
-            prediction.co2 > 1000
-        ){
+        if(prediction.aqi !== undefined){
 
             alertBox.innerHTML =
-                "⚠️ ALERTE IA : Pollution élevée détectée";
+                `🌍 AQI GLOBAL: <b>${prediction.aqi}</b><br>
+                 ${prediction.status} — ${prediction.alert}`;
 
-            alertBox.style.color = "red";
+            // couleurs selon statut OMS
 
-        }else{
+            switch(prediction.status){
 
-            alertBox.innerHTML =
-                "✔ Qualité de l'air stable";
+                case "BON":
+                    alertBox.style.color = "#22c55e";
+                    break;
 
-            alertBox.style.color = "#22c55e";
+                case "MODÉRÉ":
+                    alertBox.style.color = "#eab308";
+                    break;
+
+                case "MAUVAIS":
+                    alertBox.style.color = "#f97316";
+                    break;
+
+                case "DANGEREUX":
+                    alertBox.style.color = "#ef4444";
+                    break;
+
+                case "TRÈS DANGEREUX":
+                    alertBox.style.color = "#7f1d1d";
+                    break;
+
+                default:
+                    alertBox.style.color = "white";
+            }
+
+        } else {
+            alertBox.innerHTML = "⚠ AQI indisponible";
+            alertBox.style.color = "gray";
         }
 
-    }catch(error){
-
+    } catch(error){
         console.log("FETCH ERROR:", error);
     }
 }
-
 
 // FIRST LOAD
 updateChart();
 
 // AUTO REFRESH
 setInterval(updateChart, 3000);
-
 </script>
 <footer>
 
