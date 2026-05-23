@@ -67,9 +67,7 @@ from firebase_admin import credentials, initialize_app, db
 
 cred = credentials.Certificate(firebase_config)
 
-try:
-    firebase_admin.get_app()
-except ValueError:
+if not firebase_admin._apps:
     initialize_app(
         cred,
         {
@@ -77,6 +75,13 @@ except ValueError:
         }
     )
 
+def parse_timestamp(ts):
+    try:
+        ts = int(ts)
+        return pd.to_datetime(ts, unit="s")
+    except:
+        return pd.NaT
+    
 def get_mesures():
     try:
         ref = db.reference("air/latest")
@@ -93,7 +98,7 @@ def get_mesures():
             "nox": data.get("nox", 0),
             "sox": data.get("sox", 0),
             "nhx": data.get("nhx", 0),
-            "timestamp": pd.to_datetime(data.get("timestamp", 0), errors="coerce")
+            "timestamp": parse_timestamp(data.get("timestamp", 0))
         }])
 
     except Exception as e:
@@ -211,7 +216,57 @@ def api_live():
         "nhx": float(row.get("nhx", 0))
     }
 
-        
+#WEB STOCK
+
+from fastapi import WebSocket, WebSocketDisconnect
+import asyncio
+import json
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def send_json(self, data: dict):
+        for connection in self.active_connections:
+            await connection.send_text(json.dumps(data))
+
+
+manager = ConnectionManager()
+
+@app.websocket("/ws/live")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+
+    try:
+        while True:
+            df = get_mesures()
+
+            if not df.empty:
+                row = df.iloc[0]
+
+                data = {
+                    "pm25": float(row.get("pm25", 0)),
+                    "pm10": float(row.get("pm10", 0)),
+                    "co2": float(row.get("co2", 0)),
+                    "nox": float(row.get("nox", 0)),
+                    "sox": float(row.get("sox", 0)),
+                    "nhx": float(row.get("nhx", 0)),
+                }
+
+                await manager.send_json(data)
+
+            await asyncio.sleep(2)
+
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+
 @app.get("/test")
 def test():
     return {
@@ -376,15 +431,10 @@ def apriori_page(request: Request):
         # bool -> int
         df_bin = df_bin.astype(int)
 
-        # suppression colonnes vides
-        df_bin = df_bin.loc[
-            :,
-            df_bin.sum() > 0
-        ]
-
         # suppression lignes vides
         df_bin = df_bin.loc[:, (df_bin.sum(axis=0) > 0)]
-        
+
+        print("DF BIN SHAPE:", df_bin.shape)
         # dataset HTML
         table_dataset = df_bin.to_dict(
             orient="records"

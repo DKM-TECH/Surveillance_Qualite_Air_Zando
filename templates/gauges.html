@@ -104,7 +104,7 @@
 
         {% for pol, val in mesures.items() %}
         <div class="card">
-            <div id="{{ pol }}_gauge"></div>
+          <div id="{{ pol|lower }}_gauge"></div>
         </div>
         {% endfor %}
 
@@ -113,16 +113,15 @@
 <script>
 
 const seuils = {
-    "pm25": 50,
-    "pm10": 100,
-    "co2": 1000,
-    "nox": 200,
-    "sox": 150,
-    "nhx": 100
+    pm25: 50,
+    pm10: 100,
+    co2: 1000,
+    nox: 200,
+    sox: 150,
+    nhx: 100
 };
 
 function couleur(val, seuil){
-
     const ratio = val / seuil;
 
     if(ratio >= 3) return "darkred";
@@ -133,67 +132,46 @@ function couleur(val, seuil){
 
 function afficherGauge(pol, val){
 
-    const gaugeId = pol + "_gauge";
+    const id = pol + "_gauge";
 
-    Plotly.react(
-        gaugeId,
-        [{
-            type: "indicator",
-            mode: "gauge+number",
-            value: val,
-            title: { text: pol.toUpperCase() },
-
-            gauge: {
-                axis: {
-                    range: [0, Math.max(val * 2, seuils[pol] * 3)]
-                },
-                bar: {
-                    color: couleur(val, seuils[pol])
-                }
-            }
-        }],
-        {
-            paper_bgcolor:"#1e293b",
-            plot_bgcolor:"#1e293b",
-            font:{ color:"white" },
-            margin:{ t:50, b:20, l:20, r:20 },
-            responsive:true
+    Plotly.react(id, [{
+        type: "indicator",
+        mode: "gauge+number",
+        value: val,
+        title: { text: pol.toUpperCase() },
+        gauge: {
+            axis: { range: [0, Math.max(val * 2, seuils[pol] * 3)] },
+            bar: { color: couleur(val, seuils[pol]) }
         }
-    );
+    }], {
+        paper_bgcolor:"#1e293b",
+        font:{ color:"white" }
+    });
 }
 
-async function chargerDonnees(){
+// WebSocket connection
+const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+const ws = new WebSocket(protocol + "://" + window.location.host + "/ws/live");
 
-    try{
-        const response = await fetch("/api/live");
+ws.onmessage = function(event){
 
-        if(!response.ok){
-            throw new Error("API error");
+    const data = JSON.parse(event.data);
+    console.log("LIVE DATA:", data);
+
+    for(const pol in data){
+        if(document.getElementById(pol + "_gauge")){
+            afficherGauge(pol, data[pol]);
         }
-
-        const mesures = await response.json();
-
-        console.log("DATA:", mesures);
-
-        for(const pol in mesures){
-            const gaugeId = pol + "_gauge";
-
-            // création dynamique si nécessaire
-            if(document.getElementById(gaugeId)){
-                afficherGauge(pol, mesures[pol]);
-            }
-        }
-
-    }catch(error){
-        console.log("Erreur API:", error);
     }
-}
+};
 
-// initial load
-chargerDonnees();
+ws.onopen = () => {
+    console.log("WebSocket connecté");
+};
 
-// refresh auto
-setInterval(chargerDonnees, 10000);
+ws.onerror = (err) => {
+    console.log("WebSocket error", err);
+};
 
 </script>
 
