@@ -225,54 +225,39 @@ from fastapi.responses import JSONResponse
 @app.get("/api/live")
 async def api_live():
 
-    df = get_mesures()
+    try:
 
-    mesures = {
-        "PM2.5": 0,
-        "PM10": 0,
-        "CO2": 0,
-        "NOx": 0,
-        "SOx": 0,
-        "NHx": 0
-    }
+        docs = (
+            db.collection("mesures")
+            .order_by(
+                "timestamp",
+                direction="DESCENDING"
+            )
+            .limit(1)
+            .stream()
+        )
 
-    if df is not None and not df.empty:
+        for doc in docs:
 
-        try:
+            row = doc.to_dict()
 
-            # prendre la dernière mesure
-            if "timestamp" in df.columns:
-
-                df = df.sort_values(
-                    by="timestamp",
-                    ascending=False
-                )
-
-            row = df.iloc[0]
-
-            correspondance = {
-                "PM2.5": "pm25",
-                "PM10": "pm10",
-                "CO2": "co2",
-                "NOx": "nox",
-                "SOx": "sox",
-                "NHx": "nhx"
+            return {
+                "PM2.5": row.get("pm25", 0),
+                "PM10": row.get("pm10", 0),
+                "CO2": row.get("co2", 0),
+                "NOx": row.get("nox", 0),
+                "SOx": row.get("sox", 0),
+                "NHx": row.get("nhx", 0)
             }
 
-            for affichage, colonne in correspondance.items():
+        return {}
 
-                if colonne in row:
+    except Exception as e:
 
-                    mesures[affichage] = float(
-                        row.get(colonne, 0)
-                    )
+        print("API LIVE ERROR:", e)
 
-        except Exception as e:
-
-            print("API LIVE ERROR:", e)
-
-    return JSONResponse(content=mesures)
-
+        return {}
+    
 @app.get("/test")
 def test():
     return {
