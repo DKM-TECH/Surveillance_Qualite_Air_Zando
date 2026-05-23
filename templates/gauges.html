@@ -103,9 +103,9 @@
     <div class="gauges">
 
         {% for pol, val in mesures.items() %}
-        <div class="card">
-          <div id="{{ pol|lower }}_gauge"></div>
-        </div>
+           <div class="card">
+                <div id="{{ pol }}_gauge"></div>
+            </div>
         {% endfor %}
 
     </div>
@@ -158,7 +158,8 @@ async function chargerDonnees(){
         const data = await response.json();
 
         console.log("LIVE DATA:", data);
-
+        console.log("KEYS:", Object.keys(data));
+        console.log("DOM CHECK pm25:", document.getElementById("pm25_gauge"));
         for(const pol in data){
             const el = document.getElementById(pol + "_gauge");
             if(el){

@@ -905,33 +905,38 @@ except:
 
 @app.get("/predict")
 def predict():
+    if model is None:
+        return {"error": "model not loaded"}
 
     df = get_mesures()
     if df.empty:
-        return {}
+        return {"error": "no data"}
 
-    row = df.iloc[-1]
+    row = df.iloc[0]
 
-    X = [[
-        row["pm25"],
-        row["pm10"],
-        row["co2"],
-        row["nox"],
-        row["sox"],
-        row["nhx"]
-    ]]
-    if model is None:
-        return {"error": "Model not loaded"}
-    prediction = model.predict(X)[0]
+    try:
+        X = [[
+            float(row["pm25"]),
+            float(row["pm10"]),
+            float(row["co2"]),
+            float(row["nox"]),
+            float(row["sox"]),
+            float(row["nhx"])
+        ]]
 
-    return {
-        "pm25": float(prediction[0]),
-        "pm10": float(prediction[1]),
-        "co2": float(prediction[2]),
-        "nox": float(prediction[3]),
-        "sox": float(prediction[4]),
-        "nhx": float(prediction[5])
-    }
+        pred = model.predict(X)[0]
+
+        return {
+            "pm25": float(pred[0]),
+            "pm10": float(pred[1]),
+            "co2": float(pred[2]),
+            "nox": float(pred[3]),
+            "sox": float(pred[4]),
+            "nhx": float(pred[5])
+        }
+
+    except Exception as e:
+        return {"error": str(e)}
 
 @app.get("/api/realtime")
 def realtime():
@@ -944,15 +949,14 @@ def realtime():
     df = df.sort_values(by="timestamp", ascending=True).tail(30)
 
     return {
-        "labels": list(range(len(df))),
-
-        "pm25": df["pm25"].tolist(),
-        "pm10": df["pm10"].tolist(),
-        "co2": df["co2"].tolist(),
-        "nox": df["nox"].tolist(),
-        "sox": df["sox"].tolist(),
-        "nhx": df["nhx"].tolist()
-    }
+    "labels": list(range(len(df))),
+    "pm25": df["pm25"].fillna(0).astype(float).tolist(),
+    "pm10": df["pm10"].fillna(0).astype(float).tolist(),
+    "co2": df["co2"].fillna(0).astype(float).tolist(),
+    "nox": df["nox"].fillna(0).astype(float).tolist(),
+    "sox": df["sox"].fillna(0).astype(float).tolist(),
+    "nhx": df["nhx"].fillna(0).astype(float).tolist()
+}
 
 if __name__ == "__main__":
     import uvicorn
