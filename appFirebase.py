@@ -67,7 +67,9 @@ from firebase_admin import credentials, initialize_app, db
 
 cred = credentials.Certificate(firebase_config)
 
-if not firebase_admin.get_app():
+try:
+    firebase_admin.get_app()
+except ValueError:
     initialize_app(
         cred,
         {
