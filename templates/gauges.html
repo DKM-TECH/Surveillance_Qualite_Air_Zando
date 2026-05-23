@@ -172,7 +172,9 @@ ws.onopen = () => {
 ws.onerror = (err) => {
     console.log("WebSocket error", err);
 };
-
+ws.onopen = () => console.log("WS OK");
+ws.onerror = (e) => console.log("WS ERROR", e);
+ws.onclose = () => console.log("WS CLOSED");
 </script>
 
 </body>
