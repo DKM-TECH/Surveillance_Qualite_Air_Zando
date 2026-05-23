@@ -958,7 +958,7 @@ def predict():
         return {"error": "model not loaded"}
 
     df = get_history_mesures()
-    
+
     print("DF SIZE:", len(df))
     print(df.head())
     print(df.dtypes)
@@ -970,43 +970,43 @@ def predict():
     df["timestamp"] = df["timestamp"].apply(convert_timestamp)
 
     # suppression invalides
-    df = df.dropna(subset=["pm25","pm10","co2"])
+    df = df.dropna(subset=["pm25","pm10","co2","nox","sox","nhx"])
     df = df.dropna(subset=["timestamp"])
 
-    # tri du plus récent
-    df = df.sort_values(
-        by="timestamp",
-        ascending=False
-    )
+    if df.empty:
+        return {"error": "no valid data after cleaning"}
 
-    row = df.iloc[0]
+    # tri du plus récent
+    df = df.sort_values(by="timestamp", ascending=False)
+
+    # colonnes utilisées par le modèle
+    cols = ["pm25","pm10","co2","nox","sox","nhx"]
+
+    # vérifier assez d’historique
+    if len(df) < 5:
+        return {"error": "not enough history (need at least 5 rows)"}
+
+    # =========================
+    # WINDOW TEMPORELLE (NOUVEAU)
+    # =========================
+    window = df[cols].head(5).values.flatten()
+
+    # format pour le modèle
+    X = [window]
 
     try:
-
-        X = [[
-            float(row["pm25"]),
-            float(row["pm10"]),
-            float(row["co2"]),
-            float(row["nox"]),
-            float(row["sox"]),
-            float(row["nhx"])
-        ]]
-
         pred = model.predict(X)[0]
 
         return {
-
             "pm25": float(pred[0]),
             "pm10": float(pred[1]),
             "co2": float(pred[2]),
             "nox": float(pred[3]),
             "sox": float(pred[4]),
             "nhx": float(pred[5])
-
         }
 
     except Exception as e:
-
         return {
             "error": str(e)
         }
