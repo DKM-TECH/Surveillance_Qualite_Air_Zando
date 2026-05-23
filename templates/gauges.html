@@ -145,39 +145,35 @@ function afficherGauge(pol, val){
         }
     }], {
         paper_bgcolor:"#1e293b",
-        font:{ color:"white" }
+        font:{ color:"white" },
+        margin: { t: 40, b: 20, l: 20, r: 20 },
+        transition: { duration: 500 }   // ✔️ ICI au bon endroit
     });
 }
 
-// WebSocket connection
-const ws = new WebSocket(
-    (window.location.protocol === "https:" ? "wss://" : "ws://") +
-    window.location.host +
-    "/ws/live"
-);
+async function chargerDonnees(){
 
-ws.onmessage = function(event){
+    try {
+        const response = await fetch("/api/live");
+        const data = await response.json();
 
-    const data = JSON.parse(event.data);
-    console.log("LIVE DATA:", data);
+        console.log("LIVE DATA:", data);
 
-    for(const pol in data){
-        if(document.getElementById(pol + "_gauge")){
-            afficherGauge(pol, data[pol]);
+        for(const pol in data){
+            const el = document.getElementById(pol + "_gauge");
+            if(el){
+                afficherGauge(pol, data[pol]);
+            }
         }
+
+    } catch (error) {
+        console.log("FETCH ERROR:", error);
     }
-};
+}
 
-ws.onopen = () => {
-    console.log("WebSocket connecté");
-};
+chargerDonnees();
+setInterval(chargerDonnees, 5000);
 
-ws.onerror = (err) => {
-    console.log("WebSocket error", err);
-};
-ws.onopen = () => console.log("WS OK");
-ws.onerror = (e) => console.log("WS ERROR", e);
-ws.onclose = () => console.log("WS CLOSED");
 </script>
 
 </body>
