@@ -11,8 +11,6 @@ from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 
-from firebase_admin import credentials, firestore
-
 from mlxtend.frequent_patterns import apriori, association_rules
 
 app = FastAPI()
@@ -45,10 +43,6 @@ SEUILS = {
 
 # -------------------------
 # Firebase Configuration
-# -------------------------
-from firebase_admin import credentials, firestore
-
-import os
 
 def get_env(key):
     value = os.getenv(key)
@@ -69,137 +63,109 @@ firebase_config = {
     "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/" + get_env("FIREBASE_CLIENT_EMAIL")
 }
 
-cred = credentials.Certificate(firebase_config)
-if not firebase_admin._apps:
-    firebase_admin.initialize_app(cred)
+from firebase_admin import credentials, initialize_app, db
 
-db = firestore.client()
+cred = credentials.Certificate(firebase_config)
+
+if not firebase_admin.get_app():
+    initialize_app(
+        cred,
+        {
+            "databaseURL": get_env("FIREBASE_DATABASE_URL")
+        }
+    )
+
+def get_mesures():
+    try:
+        ref = db.reference("air/latest")
+        data = ref.get()
+
+        if not data:
+            return pd.DataFrame()
+
+        # sécurité mapping
+        return pd.DataFrame([{
+            "pm25": data.get("pm25", 0),
+            "pm10": data.get("pm10", 0),
+            "co2": data.get("co2", 0),
+            "nox": data.get("nox", 0),
+            "sox": data.get("sox", 0),
+            "nhx": data.get("nhx", 0),
+            "timestamp": pd.to_datetime(data.get("timestamp", 0), errors="coerce")
+        }])
+
+    except Exception as e:
+        print("RTDB ERROR:", e)
+        return pd.DataFrame()
+    
 #def get_mesures():
 
-    #docs = db.collection("mesures").stream()
+#    docs = db.collection("mesures").stream()
 
-    #data = []
+ #   data = []
 
-    #for doc in docs:
+  #  for doc in docs:
 
-        #d = doc.to_dict()
+   #     d = doc.to_dict()
 
         # Sécurisation champs
-        #for col in [
-        #   "pm25",
-        #    "pm10",
-         #   "co2",
-        #   "nox",
-        #  "sox",
-         #   "nhx",
-          #  "lat",
-         #   "lon"
+    #    for col in [
+     #       "pm25",
+      #      "pm10",
+       #     "co2",
+        #    "nox",
+         #   "sox",
+        #    "nhx",
+        #    "lat",
+        #    "lon"
         #]:
-        #  try:
-         #       d[col] = float(d.get(col, 0) or 0)
+        #    try:
+        #        d[col] = float(d.get(col, 0) or 0)
         #    except:
-       #         d[col] = 0
+        #        d[col] = 0
 
-      #  d["timestamp"] = str(d.get("timestamp", ""))
+        #d["timestamp"] = str(d.get("timestamp", ""))
 
-     #   data.append(d)
+       # data.append(d)
 
     #if not data:
-    #    return pd.DataFrame()
+     #   return pd.DataFrame()
+
+    # =========================
+    # DATAFRAME
+    # =========================
+
     #df = pd.DataFrame(data)
 
     # =========================
-    # MACHINE LEARNING TARGET
+    # TARGETS ML FUTURS
     # =========================
 
-    # prochaine valeur PM2.5
-    #df["pm25_future"] = df["pm25"].shift(-1)
+    #for pol in [
+     #   "pm25",
+      #  "pm10",
+       # "co2",
+        #"nox",
+   #     "sox",
+    #    "nhx"
+    #]:
+    #    df[f"{pol}_future"] = df[pol].shift(-1)
 
-    # suppression lignes invalides
+    # suppression NAN
     #df = df.dropna()
 
     # =========================
     # EXPORT CSV
     # =========================
 
-   # df.to_csv(
+    #df.to_csv(
     #    "dataset.csv",
-     #   index=False
+    #    index=False
     #)
 
     #print("DATASET GENERE")
 
     #return df
-    #return pd.DataFrame(data)
-
-def get_mesures():
-
-    docs = db.collection("mesures").stream()
-
-    data = []
-
-    for doc in docs:
-
-        d = doc.to_dict()
-
-        # Sécurisation champs
-        for col in [
-            "pm25",
-            "pm10",
-            "co2",
-            "nox",
-            "sox",
-            "nhx",
-            "lat",
-            "lon"
-        ]:
-            try:
-                d[col] = float(d.get(col, 0) or 0)
-            except:
-                d[col] = 0
-
-        d["timestamp"] = str(d.get("timestamp", ""))
-
-        data.append(d)
-
-    if not data:
-        return pd.DataFrame()
-
-    # =========================
-    # DATAFRAME
-    # =========================
-
-    df = pd.DataFrame(data)
-
-    # =========================
-    # TARGETS ML FUTURS
-    # =========================
-
-    for pol in [
-        "pm25",
-        "pm10",
-        "co2",
-        "nox",
-        "sox",
-        "nhx"
-    ]:
-        df[f"{pol}_future"] = df[pol].shift(-1)
-
-    # suppression NAN
-    df = df.dropna()
-
-    # =========================
-    # EXPORT CSV
-    # =========================
-
-    df.to_csv(
-        "dataset.csv",
-        index=False
-    )
-
-    print("DATASET GENERE")
-
-    return df
 
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
@@ -208,56 +174,42 @@ def home(request: Request):
     "home.html",
     {"request": request}
 )
-@app.get("/firestore")
-def firestore_test():
+#@app.get("/firestore")
+#def firestore_test():
 
-    docs = db.collection("mesures").stream()
+ #   docs = db.collection("mesures").stream()
 
-    data = []
+  #  data = []
 
-    for doc in docs:
-        data.append(doc.to_dict())
+   # for doc in docs:
+    #    data.append(doc.to_dict())
 
-    return data
+    #return data
 
 from fastapi.responses import JSONResponse
 #ROUTE API/LIVE
+#from fastapi.responses import JSONResponse
+
 @app.get("/api/live")
-async def api_live():
+def api_live():
+    df = get_mesures()
 
-    try:
-
-        docs = (
-            db.collection("mesures")
-            .order_by(
-                "timestamp",
-                direction="DESCENDING"
-            )
-            .limit(1)
-            .stream()
-        )
-
-        for doc in docs:
-
-            row = doc.to_dict()
-
-            return {
-                "PM2.5": row.get("pm25", 0),
-                "PM10": row.get("pm10", 0),
-                "CO2": row.get("co2", 0),
-                "NOx": row.get("nox", 0),
-                "SOx": row.get("sox", 0),
-                "NHx": row.get("nhx", 0)
-            }
-
+    if df.empty:
         return {}
 
-    except Exception as e:
+    df = df.sort_values(by="timestamp", ascending=False)
+    row = df.iloc[0]
 
-        print("API LIVE ERROR:", e)
+    return {
+        "pm25": float(row.get("pm25", 0)),
+        "pm10": float(row.get("pm10", 0)),
+        "co2": float(row.get("co2", 0)),
+        "nox": float(row.get("nox", 0)),
+        "sox": float(row.get("sox", 0)),
+        "nhx": float(row.get("nhx", 0))
+    }
 
-        return {}
-    
+        
 @app.get("/test")
 def test():
     return {
@@ -294,11 +246,7 @@ def gauges(request: Request):
 
         try:
 
-            df = df.sort_values(
-                by="timestamp",
-                ascending=False
-            )
-
+            df["timestamp"] = df["timestamp"].apply(convert_timestamp)
             row = df.iloc[0]
 
             correspondance = {
@@ -433,9 +381,7 @@ def apriori_page(request: Request):
         ]
 
         # suppression lignes vides
-        df_bin = df_bin[
-            df_bin.sum(axis=1) > 0
-        ]
+        df_bin = df_bin.loc[:, (df_bin.sum(axis=0) > 0)]
         
         # dataset HTML
         table_dataset = df_bin.to_dict(
@@ -895,7 +841,11 @@ def prediction_page(request: Request):
     )
 import joblib
 
-model = joblib.load("air_model.pkl")
+try:
+    model = joblib.load("air_model.pkl")
+except:
+    model = None
+    print("⚠️ Model ML introuvable")
 
 @app.get("/predict")
 def predict():
@@ -914,7 +864,8 @@ def predict():
         row["sox"],
         row["nhx"]
     ]]
-
+    if model is None:
+        return {"error": "Model not loaded"}
     prediction = model.predict(X)[0]
 
     return {
