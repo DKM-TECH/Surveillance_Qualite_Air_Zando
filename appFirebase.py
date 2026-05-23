@@ -104,6 +104,43 @@ def get_mesures():
     except Exception as e:
         print("RTDB ERROR:", e)
         return pd.DataFrame()
+
+def get_history_mesures():
+
+    try:
+
+        ref = db.reference("air/history")
+
+        data = ref.get()
+
+        if not data:
+            return pd.DataFrame()
+
+        rows = []
+
+        for key, value in data.items():
+
+            rows.append({
+
+                "pm25": float(value.get("pm25", 0)),
+                "pm10": float(value.get("pm10", 0)),
+                "co2": float(value.get("co2", 0)),
+                "nox": float(value.get("nox", 0)),
+                "sox": float(value.get("sox", 0)),
+                "nhx": float(value.get("nhx", 0)),
+                "timestamp": value.get("timestamp", "")
+
+            })
+
+        df = pd.DataFrame(rows)
+
+        return df
+
+    except Exception as e:
+
+        print("HISTORY ERROR:", e)
+
+        return pd.DataFrame()
     
 #def get_mesures():
 
@@ -370,7 +407,7 @@ def gauges(request: Request):
 @app.get("/apriori", response_class=HTMLResponse)
 def apriori_page(request: Request):
 
-    df = get_mesures()
+    df = get_history_mesures()
 
     dernieres_mesures = {
         k: 0.0 for k in SEUILS
@@ -666,10 +703,11 @@ def convert_timestamp(ts):
 
     except Exception:
         return pd.NaT
+    
 @app.get("/api/historique")
 def historique():
 
-    df = get_mesures()
+    df = get_history_mesures()
 
     if df.empty:
         return {
@@ -905,16 +943,31 @@ except:
 
 @app.get("/predict")
 def predict():
+
     if model is None:
         return {"error": "model not loaded"}
 
-    df = get_mesures()
+    df = get_history_mesures()
+
     if df.empty:
         return {"error": "no data"}
+
+    # conversion timestamp
+    df["timestamp"] = df["timestamp"].apply(convert_timestamp)
+
+    # suppression invalides
+    df = df.dropna(subset=["timestamp"])
+
+    # tri du plus récent
+    df = df.sort_values(
+        by="timestamp",
+        ascending=False
+    )
 
     row = df.iloc[0]
 
     try:
+
         X = [[
             float(row["pm25"]),
             float(row["pm10"]),
@@ -927,21 +980,26 @@ def predict():
         pred = model.predict(X)[0]
 
         return {
+
             "pm25": float(pred[0]),
             "pm10": float(pred[1]),
             "co2": float(pred[2]),
             "nox": float(pred[3]),
             "sox": float(pred[4]),
             "nhx": float(pred[5])
+
         }
 
     except Exception as e:
-        return {"error": str(e)}
 
+        return {
+            "error": str(e)
+        }
+    
 @app.get("/api/realtime")
 def realtime():
 
-    df = get_mesures()
+    df = get_history_mesures()
 
     if df.empty:
         return {}
