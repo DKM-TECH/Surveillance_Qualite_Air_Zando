@@ -145,6 +145,14 @@
             background:#111827;
             color:#94a3b8;
         }
+        .box{
+            height:700px;
+        }
+
+        #chart{
+             width:100% !important;
+             height:500px !important;
+        }
 
     </style>
 </head>
@@ -226,8 +234,7 @@
 
 <script>
 
-const ctx =
-    document.getElementById("chart").getContext("2d");
+const ctx = document.getElementById("chart");
 
 const chart = new Chart(ctx, {
 
@@ -241,52 +248,100 @@ const chart = new Chart(ctx, {
 
             {
                 label: "PM2.5",
-                borderColor: "#38bdf8",
                 data: [],
-                tension:0.4
+                borderColor: "#38bdf8",
+                fill: false,
+                tension: 0.4
             },
 
             {
                 label: "PM10",
-                borderColor: "#f97316",
                 data: [],
-                tension:0.4
+                borderColor: "#f97316",
+                fill: false,
+                tension: 0.4
             },
 
             {
                 label: "CO2",
-                borderColor: "#22c55e",
                 data: [],
-                tension:0.4
+                borderColor: "#22c55e",
+                fill: false,
+                tension: 0.4
             },
 
             {
                 label: "NOx",
-                borderColor: "#ef4444",
                 data: [],
-                tension:0.4
+                borderColor: "#ef4444",
+                fill: false,
+                tension: 0.4
             },
 
             {
                 label: "SOx",
-                borderColor: "#a855f7",
                 data: [],
-                tension:0.4
+                borderColor: "#a855f7",
+                fill: false,
+                tension: 0.4
             },
 
             {
                 label: "NHx",
-                borderColor: "#eab308",
                 data: [],
-                tension:0.4
+                borderColor: "#eab308",
+                fill: false,
+                tension: 0.4
             },
+
+            // IA
 
             {
                 label: "PM2.5 IA",
-                borderColor: "#ffffff",
-                borderDash:[5,5],
                 data: [],
-                tension:0.4
+                borderColor: "#ffffff",
+                borderDash: [5,5],
+                fill: false
+            },
+
+            {
+                label: "PM10 IA",
+                data: [],
+                borderColor: "#ffb4a2",
+                borderDash: [5,5],
+                fill: false
+            },
+
+            {
+                label: "CO2 IA",
+                data: [],
+                borderColor: "#86efac",
+                borderDash: [5,5],
+                fill: false
+            },
+
+            {
+                label: "NOx IA",
+                data: [],
+                borderColor: "#fca5a5",
+                borderDash: [5,5],
+                fill: false
+            },
+
+            {
+                label: "SOx IA",
+                data: [],
+                borderColor: "#d8b4fe",
+                borderDash: [5,5],
+                fill: false
+            },
+
+            {
+                label: "NHx IA",
+                data: [],
+                borderColor: "#fde047",
+                borderDash: [5,5],
+                fill: false
             }
 
         ]
@@ -294,182 +349,176 @@ const chart = new Chart(ctx, {
 
     options: {
 
-        responsive:true,
+        responsive: true,
 
-        animation:false,
+        maintainAspectRatio: false,
 
-        plugins: {
-
-            legend:{
-                labels:{
-                    color:"white"
-                }
-            }
-        },
+        animation: false,
 
         scales: {
 
-            x:{
-                ticks:{
-                    color:"white"
+            x: {
+                ticks: {
+                    color: "white"
                 }
             },
 
-            y:{
-                ticks:{
-                    color:"white"
+            y: {
+                ticks: {
+                    color: "white"
                 }
             }
 
+        },
+
+        plugins: {
+
+            legend: {
+
+                labels: {
+                    color: "white"
+                }
+            }
         }
-
     }
-
 });
 
-function safe(v){
 
-    if(v === undefined || v === null || isNaN(v)){
-        return 0;
-    }
-
-    return Number(v);
-}
+// ======================= UPDATE =======================
 
 async function updateChart(){
 
     try{
 
-        // ================= REALTIME =================
-
         const realtimeResponse =
             await fetch("/api/realtime");
 
-        const realtimeData =
+        const predictionResponse =
+            await fetch("/predict");
+
+        const data =
             await realtimeResponse.json();
 
-        console.log("REALTIME:", realtimeData);
+        const prediction =
+            await predictionResponse.json();
 
-        if(!realtimeData.pm25){
-            console.log("NO REALTIME DATA");
+        console.log("REALTIME:", data);
+        console.log("PREDICTION:", prediction);
+
+        if(!data.labels){
             return;
         }
 
-        chart.data.labels =
-            realtimeData.labels;
+        // LABELS
+
+        chart.data.labels = data.labels;
+
+        // REAL DATA
 
         chart.data.datasets[0].data =
-            realtimeData.pm25.map(safe);
+            data.pm25.map(Number);
 
         chart.data.datasets[1].data =
-            realtimeData.pm10.map(safe);
+            data.pm10.map(Number);
 
         chart.data.datasets[2].data =
-            realtimeData.co2.map(safe);
+            data.co2.map(Number);
 
         chart.data.datasets[3].data =
-            realtimeData.nox.map(safe);
+            data.nox.map(Number);
 
         chart.data.datasets[4].data =
-            realtimeData.sox.map(safe);
+            data.sox.map(Number);
 
         chart.data.datasets[5].data =
-            realtimeData.nhx.map(safe);
+            data.nhx.map(Number);
 
-        // ================= PREDICTION =================
+        // IA LINES
 
-        try{
+        chart.data.datasets[6].data =
+            Array(data.labels.length)
+            .fill(Number(prediction.pm25));
 
-            const predResponse =
-                await fetch("/predict");
+        chart.data.datasets[7].data =
+            Array(data.labels.length)
+            .fill(Number(prediction.pm10));
 
-            const prediction =
-                await predResponse.json();
+        chart.data.datasets[8].data =
+            Array(data.labels.length)
+            .fill(Number(prediction.co2));
 
-            console.log("PREDICTION:", prediction);
+        chart.data.datasets[9].data =
+            Array(data.labels.length)
+            .fill(Number(prediction.nox));
 
-            if(!prediction.error){
+        chart.data.datasets[10].data =
+            Array(data.labels.length)
+            .fill(Number(prediction.sox));
 
-                chart.data.datasets[6].data =
-                    Array(
-                        realtimeData.labels.length
-                    ).fill(
-                        safe(prediction.pm25)
-                    );
-
-                document.getElementById("pred_pm25").innerHTML =
-                    safe(prediction.pm25).toFixed(2);
-
-                document.getElementById("pred_pm10").innerHTML =
-                    safe(prediction.pm10).toFixed(2);
-
-                document.getElementById("pred_co2").innerHTML =
-                    safe(prediction.co2).toFixed(2);
-
-                document.getElementById("pred_nox").innerHTML =
-                    safe(prediction.nox).toFixed(2);
-
-                document.getElementById("pred_sox").innerHTML =
-                    safe(prediction.sox).toFixed(2);
-
-                document.getElementById("pred_nhx").innerHTML =
-                    safe(prediction.nhx).toFixed(2);
-
-                const alertBox =
-                    document.getElementById("alertBox");
-
-                if(
-                    safe(prediction.pm25) > 35 ||
-                    safe(prediction.pm10) > 50 ||
-                    safe(prediction.co2) > 1000
-                ){
-
-                    alertBox.innerHTML =
-                        "⚠️ Pollution future détectée";
-
-                    alertBox.style.color = "red";
-
-                }else{
-
-                    alertBox.innerHTML =
-                        "✔ Qualité future stable";
-
-                    alertBox.style.color = "#22c55e";
-                }
-
-            }else{
-
-                console.log("MODEL ERROR");
-
-                document.getElementById("alertBox").innerHTML =
-                    "⚠️ Modèle IA indisponible";
-
-                document.getElementById("alertBox").style.color =
-                    "orange";
-            }
-
-        }catch(predErr){
-
-            console.log("PRED FETCH ERROR:", predErr);
-        }
+        chart.data.datasets[11].data =
+            Array(data.labels.length)
+            .fill(Number(prediction.nhx));
 
         chart.update();
 
+        // ================= PREDICTIONS =================
+
+        document.getElementById("pred_pm25")
+            .innerHTML = Number(prediction.pm25).toFixed(2);
+
+        document.getElementById("pred_pm10")
+            .innerHTML = Number(prediction.pm10).toFixed(2);
+
+        document.getElementById("pred_co2")
+            .innerHTML = Number(prediction.co2).toFixed(2);
+
+        document.getElementById("pred_nox")
+            .innerHTML = Number(prediction.nox).toFixed(2);
+
+        document.getElementById("pred_sox")
+            .innerHTML = Number(prediction.sox).toFixed(2);
+
+        document.getElementById("pred_nhx")
+            .innerHTML = Number(prediction.nhx).toFixed(2);
+
+        // ================= ALERT =================
+
+        const alertBox =
+            document.getElementById("alertBox");
+
+        if(
+            prediction.pm25 > 35 ||
+            prediction.pm10 > 50 ||
+            prediction.co2 > 1000
+        ){
+
+            alertBox.innerHTML =
+                "⚠️ ALERTE IA : Pollution élevée détectée";
+
+            alertBox.style.color = "red";
+
+        }else{
+
+            alertBox.innerHTML =
+                "✔ Qualité de l'air stable";
+
+            alertBox.style.color = "#22c55e";
+        }
+
     }catch(error){
 
-        console.log("REALTIME ERROR:", error);
+        console.log("FETCH ERROR:", error);
     }
-
 }
 
-// premier chargement
+
+// FIRST LOAD
 updateChart();
 
-// refresh temps réel
+// AUTO REFRESH
 setInterval(updateChart, 3000);
 
 </script>
-
 <footer>
 
     © 2026 IoT Smart Monitoring —

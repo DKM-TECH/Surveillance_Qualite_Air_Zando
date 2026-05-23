@@ -103,10 +103,32 @@
     <div class="gauges">
 
         {% for pol, val in mesures.items() %}
-           <div class="card">
-                <div id="{{ pol }}_gauge"></div>
-            </div>
-        {% endfor %}
+
+<div class="card">
+
+    {% if pol == "PM2.5" %}
+        <div id="pm25_gauge"></div>
+
+    {% elif pol == "PM10" %}
+        <div id="pm10_gauge"></div>
+
+    {% elif pol == "CO2" %}
+        <div id="co2_gauge"></div>
+
+    {% elif pol == "NOx" %}
+        <div id="nox_gauge"></div>
+
+    {% elif pol == "SOx" %}
+        <div id="sox_gauge"></div>
+
+    {% elif pol == "NHx" %}
+        <div id="nhx_gauge"></div>
+
+    {% endif %}
+
+</div>
+
+{% endfor %}
 
     </div>
 
