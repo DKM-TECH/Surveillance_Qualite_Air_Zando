@@ -11,7 +11,6 @@
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 
     <style>
-
         *{
             margin:0;
             padding:0;
@@ -24,7 +23,6 @@
             color:white;
         }
 
-        /* NAVBAR */
         .navbar{
             display:flex;
             justify-content:center;
@@ -78,9 +76,7 @@
             border-radius:15px;
             padding:20px;
         }
-
     </style>
-
 </head>
 
 <body>
@@ -107,11 +103,9 @@
     <div class="gauges">
 
         {% for pol, val in mesures.items() %}
-
         <div class="card">
-            <div id="{{ pol|replace('.', '_') }}_gauge"></div>
+            <div id="{{ pol }}_gauge"></div>
         </div>
-
         {% endfor %}
 
     </div>
@@ -119,76 +113,50 @@
 <script>
 
 const seuils = {
-    "PM2.5": 50,
-    "PM10": 100,
-    "CO2": 1000,
-    "NOx": 200,
-    "SOx": 150,
-    "NHx": 100
+    "pm25": 50,
+    "pm10": 100,
+    "co2": 1000,
+    "nox": 200,
+    "sox": 150,
+    "nhx": 100
 };
 
 function couleur(val, seuil){
 
-    if(val > seuil * 2)
-        return "red";
+    const ratio = val / seuil;
 
-    if(val > seuil)
-        return "orange";
-
+    if(ratio >= 3) return "darkred";
+    if(ratio >= 2) return "red";
+    if(ratio >= 1) return "orange";
     return "green";
 }
 
 function afficherGauge(pol, val){
 
-    const gaugeId =
-        pol.replace(".", "_") + "_gauge";
+    const gaugeId = pol + "_gauge";
 
     Plotly.react(
-
         gaugeId,
-
         [{
             type: "indicator",
-
             mode: "gauge+number",
-
             value: val,
-
-            title: {
-                text: pol
-            },
+            title: { text: pol.toUpperCase() },
 
             gauge: {
-
                 axis: {
-                    range: [0, 2500]
+                    range: [0, Math.max(val * 2, seuils[pol] * 3)]
                 },
-
                 bar: {
-                    color: couleur(
-                        val,
-                        seuils[pol]
-                    )
+                    color: couleur(val, seuils[pol])
                 }
             }
         }],
-
         {
             paper_bgcolor:"#1e293b",
-
             plot_bgcolor:"#1e293b",
-
-            font:{
-                color:"white"
-            },
-
-            margin:{
-                t:50,
-                b:20,
-                l:20,
-                r:20
-            },
-
+            font:{ color:"white" },
+            margin:{ t:50, b:20, l:20, r:20 },
             responsive:true
         }
     );
@@ -197,33 +165,35 @@ function afficherGauge(pol, val){
 async function chargerDonnees(){
 
     try{
-
         const response = await fetch("/api/live");
+
+        if(!response.ok){
+            throw new Error("API error");
+        }
 
         const mesures = await response.json();
 
-        console.log(mesures);
+        console.log("DATA:", mesures);
 
         for(const pol in mesures){
+            const gaugeId = pol + "_gauge";
 
-            afficherGauge(
-                pol,
-                mesures[pol]
-            );
+            // création dynamique si nécessaire
+            if(document.getElementById(gaugeId)){
+                afficherGauge(pol, mesures[pol]);
+            }
         }
 
     }catch(error){
-
-        console.log(error);
+        console.log("Erreur API:", error);
     }
 }
 
+// initial load
 chargerDonnees();
 
-setInterval(
-    chargerDonnees,
-    10000
-);
+// refresh auto
+setInterval(chargerDonnees, 10000);
 
 </script>
 
