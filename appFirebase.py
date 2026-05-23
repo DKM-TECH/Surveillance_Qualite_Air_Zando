@@ -128,7 +128,7 @@ def get_history_mesures():
                 "nox": float(value.get("nox", 0)),
                 "sox": float(value.get("sox", 0)),
                 "nhx": float(value.get("nhx", 0)),
-                "timestamp": value.get("timestamp", "")
+                "timestamp": float(value.get("timestamp", 0))
 
             })
 
@@ -958,6 +958,10 @@ def predict():
         return {"error": "model not loaded"}
 
     df = get_history_mesures()
+    
+    print("DF SIZE:", len(df))
+    print(df.head())
+    print(df.dtypes)
 
     if df.empty:
         return {"error": "no data"}
@@ -966,6 +970,7 @@ def predict():
     df["timestamp"] = df["timestamp"].apply(convert_timestamp)
 
     # suppression invalides
+    df = df.dropna(subset=["pm25","pm10","co2"])
     df = df.dropna(subset=["timestamp"])
 
     # tri du plus récent
