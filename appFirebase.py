@@ -683,23 +683,33 @@ from collections import defaultdict
 
 def convert_timestamp(ts):
 
-    if pd.isnull(ts):
+    if ts is None or pd.isnull(ts):
         return pd.NaT
 
     try:
+        # si déjà numérique (int/float)
+        if isinstance(ts, (int, float)):
+            ts = int(ts)
+
+            # heuristique ms vs s
+            if ts > 10**12:
+                return pd.to_datetime(ts, unit="ms")
+            else:
+                return pd.to_datetime(ts, unit="s")
+
         ts = str(ts).strip()
 
-        # UNIX timestamp en millisecondes
-        if ts.isdigit() and len(ts) >= 13:
-            return pd.to_datetime(int(ts), unit="ms")
+        # string numérique
+        if ts.isdigit():
+            ts_int = int(ts)
 
-        # UNIX timestamp en secondes
-        elif ts.isdigit():
-            return pd.to_datetime(int(ts), unit="s")
+            if len(ts) >= 13:
+                return pd.to_datetime(ts_int, unit="ms")
+            else:
+                return pd.to_datetime(ts_int, unit="s")
 
-        # Date texte normale
-        else:
-            return pd.to_datetime(ts, errors="coerce")
+        # fallback texte
+        return pd.to_datetime(ts, errors="coerce")
 
     except Exception:
         return pd.NaT
