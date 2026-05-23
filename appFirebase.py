@@ -242,30 +242,34 @@ manager = ConnectionManager()
 
 @app.websocket("/ws/live")
 async def websocket_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
+    await websocket.accept()
 
     try:
         while True:
-            df = get_mesures()
+            try:
+                df = get_mesures()
 
-            if not df.empty:
-                row = df.iloc[0]
+                if not df.empty:
+                    row = df.iloc[0]
 
-                data = {
-                    "pm25": float(row.get("pm25", 0)),
-                    "pm10": float(row.get("pm10", 0)),
-                    "co2": float(row.get("co2", 0)),
-                    "nox": float(row.get("nox", 0)),
-                    "sox": float(row.get("sox", 0)),
-                    "nhx": float(row.get("nhx", 0)),
-                }
+                    data = {
+                        "pm25": float(row.get("pm25", 0)),
+                        "pm10": float(row.get("pm10", 0)),
+                        "co2": float(row.get("co2", 0)),
+                        "nox": float(row.get("nox", 0)),
+                        "sox": float(row.get("sox", 0)),
+                        "nhx": float(row.get("nhx", 0)),
+                    }
 
-                await manager.send_json(data)
+                    await websocket.send_json(data)
 
-            await asyncio.sleep(2)
+            except Exception as e:
+                print("WS LOOP ERROR:", e)
+
+            await asyncio.sleep(3)
 
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
+        print("Client déconnecté")
 
 @app.get("/test")
 def test():
