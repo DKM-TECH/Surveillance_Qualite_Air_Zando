@@ -943,14 +943,45 @@ def prediction_page(request: Request):
         "prediction.html",
         {"request": request}
     )
+import os
 import joblib
 
-try:
-    model = joblib.load("air_model_timeseries.pkl")
-except:
-    model = None
-    print("⚠️ Model ML introuvable")
+MODEL_PATH = "air_xgb_model.pkl"
+FEATURES_PATH = "feature_cols.pkl"
 
+model = None
+feature_cols = None
+
+try:
+
+    # =========================
+    # LOAD XGBOOST MODEL
+    # =========================
+    if os.path.exists(MODEL_PATH):
+        model = joblib.load(MODEL_PATH)
+        print("✅ Modèle XGBoost chargé")
+    else:
+        print("⚠️ Modèle XGBoost introuvable")
+
+    # =========================
+    # LOAD FEATURES ORDER
+    # =========================
+    if os.path.exists(FEATURES_PATH):
+        feature_cols = joblib.load(FEATURES_PATH)
+        print("✅ Liste des variables chargée")
+    else:
+        print("⚠️ feature_cols.pkl introuvable")
+
+except Exception as e:
+    print(f"⚠️ Erreur chargement modèle : {e}")
+
+#import numpy as np
+
+#import numpy as np
+
+# scalers doivent être chargés globalement
+# scaler_x = joblib.load(...)
+# scaler_y = joblib.load(...)
 @app.get("/predict")
 def predict():
 
@@ -962,51 +993,86 @@ def predict():
     if df.empty:
         return {"error": "no data"}
 
-    df["timestamp"] = df["timestamp"].apply(convert_timestamp)
-
-    df = df.dropna(subset=["pm25","pm10","co2","nox","sox","nhx","timestamp"])
-
-    # ✔️ ordre chronologique correct
-    df = df.sort_values(by="timestamp", ascending=True)
-
-    cols = ["pm25","pm10","co2","nox","sox","nhx"]
-
-    WINDOW = 5
-
-    if len(df) < WINDOW:
-        return {"error": "not enough data"}
-
-    # fenêtre temporelle
-    window = df[cols].tail(WINDOW).values.flatten()
-
-    X = [window]
-
     try:
+
+        # =========================
+        # CLEAN
+        # =========================
+        df["timestamp"] = df["timestamp"].apply(convert_timestamp)
+
+        cols = [
+            "pm25",
+            "pm10",
+            "co2",
+            "nox",
+            "sox",
+            "nhx",
+            "temperature",
+            "humidity",
+            "wind_speed",
+            "rainfall",
+            "traffic_index"
+        ]
+
+        df = df.dropna(subset=cols + ["timestamp"])
+        df = df.sort_values(by="timestamp")
+
+        WINDOW = 10
+
+        if len(df) < WINDOW:
+            return {"error": "not enough data"}
+
+        # =========================
+        # BUILD WINDOW
+        # =========================
+        window = df[cols].tail(WINDOW).values
+
+        # (10,11) -> (1,110)
+        X = window.reshape(1, -1)
+
+        # =========================
+        # PREDICTION
+        # =========================
         pred = model.predict(X)[0]
 
         data_pred = {
-        "pm25": float(pred[0]),
-        "pm10": float(pred[1]),
-        "co2": float(pred[2]),
-        "nox": float(pred[3]),
-        "sox": float(pred[4]),
-        "nhx": float(pred[5])
-        }
+    "pm25": max(0, float(pred[0])),
+    "pm10": max(0, float(pred[1])),
+    "co2": max(0, float(pred[2])),
+    "nox": max(0, float(pred[3])),
+    "sox": max(0, float(pred[4])),
+    "nhx": max(0, float(pred[5]))
+    }
+
+        # =========================
+        # AQI
+        # =========================
         aqi, details = compute_global_aqi(data_pred)
+
         status, alert = interpret_aqi(aqi)
 
+        last = df.iloc[-1]
+
         return {
-            **data_pred,
-            "aqi": round(aqi, 2),
-            "status": status,
-            "alert": alert,
-            "details": details
-            }
+        "current": {
+        "pm25": float(last["pm25"]),
+        "pm10": float(last["pm10"]),
+        "co2": float(last["co2"]),
+        "nox": float(last["nox"]),
+        "sox": float(last["sox"]),
+        "nhx": float(last["nhx"])
+        },
+        "prediction": data_pred,
+        "aqi": round(aqi, 2),
+        "status": status,
+        "alert": alert,
+        "details": details
+    }
 
     except Exception as e:
         return {"error": str(e)}
-
-
+    
+    
 @app.get("/api/realtime")
 def realtime():
 
@@ -1015,33 +1081,54 @@ def realtime():
     if df.empty:
         return {}
 
-    df = df.sort_values(by="timestamp", ascending=True).tail(30)
+    df["timestamp"] = df["timestamp"].apply(convert_timestamp)
+
+    df = (
+        df.sort_values("timestamp")
+          .tail(30)
+    )
 
     return {
-    "labels": list(range(len(df))),
-    "pm25": df["pm25"].fillna(0).astype(float).tolist(),
-    "pm10": df["pm10"].fillna(0).astype(float).tolist(),
-    "co2": df["co2"].fillna(0).astype(float).tolist(),
-    "nox": df["nox"].fillna(0).astype(float).tolist(),
-    "sox": df["sox"].fillna(0).astype(float).tolist(),
-    "nhx": df["nhx"].fillna(0).astype(float).tolist()
-}
+        "labels": df["timestamp"].dt.strftime("%H:%M:%S").tolist(),
 
-#Pour l'intrepretation
+        "pm25": df["pm25"].fillna(0).tolist(),
+        "pm10": df["pm10"].fillna(0).tolist(),
+        "co2": df["co2"].fillna(0).tolist(),
+        "nox": df["nox"].fillna(0).tolist(),
+        "sox": df["sox"].fillna(0).tolist(),
+        "nhx": df["nhx"].fillna(0).tolist(),
+
+        "temperature": df["temperature"].fillna(0).tolist(),
+        "humidity": df["humidity"].fillna(0).tolist(),
+        "wind_speed": df["wind_speed"].fillna(0).tolist(),
+        "rainfall": df["rainfall"].fillna(0).tolist(),
+        "traffic_index": df["traffic_index"].fillna(0).tolist()
+    }
+
 def pollutant_score(value, limit):
+
+    if limit <= 0:
+        return 0
+
+    value = max(0, value)
+
     ratio = value / limit
 
     if ratio <= 1:
         return ratio * 50
+
     elif ratio <= 2:
         return 50 + (ratio - 1) * 50
+
     elif ratio <= 3:
         return 100 + (ratio - 2) * 50
+
     elif ratio <= 4:
         return 150 + (ratio - 3) * 50
+
     else:
         return 300
-
+    
 def compute_global_aqi(data):
     OMS_SEUILS = {
         "pm25": 15,
