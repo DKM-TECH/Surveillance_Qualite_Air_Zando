@@ -18,7 +18,7 @@
           href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
     <!-- CHART -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
     <style>
 
@@ -454,9 +454,12 @@ async function updateChart(){
         const data = await realtimeResponse.json();
         const res = await predictionResponse.json();
 
-        if(!data?.labels || !res){
-            return;
-        }
+        if(!data?.labels || !res || res.error){
+        console.log("API ERROR:", res?.error);
+        document.getElementById("alertBox").innerHTML =
+        "⚠ API prediction indisponible : " + (res?.error || "unknown error");
+    return;
+    }
 
         const current = res.current || {};
         const pred = res.prediction || {};

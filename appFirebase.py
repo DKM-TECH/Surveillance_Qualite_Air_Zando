@@ -985,93 +985,67 @@ except Exception as e:
 @app.get("/predict")
 def predict():
 
-    if model is None:
-        return {"error": "model not loaded"}
-
-    df = get_history_mesures()
-
-    if df.empty:
-        return {"error": "no data"}
-
     try:
+        if model is None:
+            return {"error": "model not loaded"}
 
-        # =========================
-        # CLEAN
-        # =========================
+        df = get_history_mesures()
+
+        if df is None or df.empty:
+            return {"error": "no data"}
+
         df["timestamp"] = df["timestamp"].apply(convert_timestamp)
 
         cols = [
-            "pm25",
-            "pm10",
-            "co2",
-            "nox",
-            "sox",
-            "nhx",
-            "temperature",
-            "humidity",
-            "wind_speed",
-            "rainfall",
-            "traffic_index"
+            "pm25","pm10","co2","nox","sox","nhx",
+            "temperature","humidity","wind_speed","rainfall","traffic_index"
         ]
 
         df = df.dropna(subset=cols + ["timestamp"])
         df = df.sort_values(by="timestamp")
 
         WINDOW = 10
-
         if len(df) < WINDOW:
             return {"error": "not enough data"}
 
-        # =========================
-        # BUILD WINDOW
-        # =========================
         window = df[cols].tail(WINDOW).values
-
-        # (10,11) -> (1,110)
         X = window.reshape(1, -1)
 
-        # =========================
-        # PREDICTION
-        # =========================
         pred = model.predict(X)[0]
 
         data_pred = {
-    "pm25": max(0, float(pred[0])),
-    "pm10": max(0, float(pred[1])),
-    "co2": max(0, float(pred[2])),
-    "nox": max(0, float(pred[3])),
-    "sox": max(0, float(pred[4])),
-    "nhx": max(0, float(pred[5]))
-    }
+            "pm25": max(0, float(pred[0])),
+            "pm10": max(0, float(pred[1])),
+            "co2": max(0, float(pred[2])),
+            "nox": max(0, float(pred[3])),
+            "sox": max(0, float(pred[4])),
+            "nhx": max(0, float(pred[5]))
+        }
 
-        # =========================
-        # AQI
-        # =========================
         aqi, details = compute_global_aqi(data_pred)
-
         status, alert = interpret_aqi(aqi)
 
         last = df.iloc[-1]
 
         return {
-        "current": {
-        "pm25": float(last["pm25"]),
-        "pm10": float(last["pm10"]),
-        "co2": float(last["co2"]),
-        "nox": float(last["nox"]),
-        "sox": float(last["sox"]),
-        "nhx": float(last["nhx"])
-        },
-        "prediction": data_pred,
-        "aqi": round(aqi, 2),
-        "status": status,
-        "alert": alert,
-        "details": details
-    }
+            "current": {
+                "pm25": float(last["pm25"]),
+                "pm10": float(last["pm10"]),
+                "co2": float(last["co2"]),
+                "nox": float(last["nox"]),
+                "sox": float(last["sox"]),
+                "nhx": float(last["nhx"])
+            },
+            "prediction": data_pred,
+            "aqi": float(aqi),
+            "status": status,
+            "alert": alert,
+            "details": details
+        }
 
     except Exception as e:
         return {"error": str(e)}
-    
+        
     
 @app.get("/api/realtime")
 def realtime():
