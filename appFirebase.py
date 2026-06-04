@@ -948,18 +948,18 @@ model = None
 
 MODEL_PATH = "air_xgb_model.pkl"
 import xgboost as xgb
-
+import traceback
 @app.get("/predict")
 def predict():
 
     global model
 
-    try:
+    
 
         # =========================
         # LOAD MODEL
         # =========================
-        if model is None:
+    if model is None:
             try:
                 model = joblib.load("air_xgb_model.pkl")
                 print("✅ Modèle chargé")
@@ -969,7 +969,7 @@ def predict():
                     "error": "model_load_failed",
                     "message": str(e)
                 }
-    import traceback
+   
 
     try:
 
@@ -1077,7 +1077,7 @@ def predict():
 
     except Exception as e:
 
-        import traceback
+        #import traceback
 
         print(traceback.format_exc())
 
