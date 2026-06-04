@@ -955,25 +955,17 @@ def predict():
     global model
 
     try:
-
         print("===== PREDICT START =====")
 
         # =========================
         # LOAD MODEL
         # =========================
         if model is None:
-
-            print("MODEL NONE -> chargement")
-
             try:
                 model = joblib.load("air_xgb_model.pkl")
-                print("✅ Modèle chargé")
+                print("✅ Modèle chargé OK")
                 print("TYPE =", type(model))
-
             except Exception as e:
-                print("❌ ERREUR CHARGEMENT MODELE")
-                print(str(e))
-
                 return {
                     "error": "model_load_failed",
                     "message": str(e)
@@ -985,112 +977,57 @@ def predict():
         # LOAD DATA
         # =========================
         df = get_history_mesures()
-        print(df.columns.tolist())
-        if df is None:
+
+        if df is None or df.empty:
             return {
-                "error": "no_data",
-                "message": "DataFrame vide"
+                "error": "no_data"
             }
 
         print("DF SHAPE =", df.shape)
-
-        if df.empty:
-            return {
-                "error": "no_data",
-                "message": "Aucune donnée"
-            }
+        print(df.columns.tolist())
 
         # =========================
         # CLEAN DATA
         # =========================
-       # =========================
-# CLEAN DATA
-# =========================
-
         df["timestamp"] = df["timestamp"].apply(convert_timestamp)
-
-        cols = [
-            "pm25",
-            "pm10",
-            "co2",
-            "nox",
-            "sox",
-            "nhx",
-            "temperature",
-            "humidity",
-            "wind_speed",
-            "rainfall",
-            "traffic_index"
-        ]
-
-        print("COLONNES DF =")
-        print(df.columns.tolist())
-
-        missing = [c for c in cols if c not in df.columns]
-
-        if missing:
-            return {
-        "error": "missing_columns",
-        "message": missing
-        }
-
         df = df.sort_values("timestamp")
 
-# Convertir en numérique
+        cols = [
+            "pm25", "pm10", "co2", "nox", "sox", "nhx",
+            "temperature", "humidity", "wind_speed",
+            "rainfall", "traffic_index"
+        ]
+
+        # garder seulement colonnes existantes
+        cols = [c for c in cols if c in df.columns]
+
+        # convertir en numérique
         for c in cols:
             df[c] = pd.to_numeric(df[c], errors="coerce")
 
-# Supprimer les lignes invalides
         df = df.dropna(subset=cols)
-
-        print("DF CLEAN SHAPE =", df.shape)
 
         WINDOW = 10
 
         if len(df) < WINDOW:
-           return {
-        "error": "not_enough_data",
-        "rows": len(df)
-        }
+            return {
+                "error": "not_enough_data",
+                "rows": len(df)
+            }
 
-# =========================
-# BUILD INPUT
-# =========================
+        # =========================
+        # BUILD INPUT
+        # =========================
 
-        X = df.loc[:, cols].tail(WINDOW).values
+        X = df[cols].tail(WINDOW).values
+        X = X.reshape(1, -1)
 
-        print("WINDOW SHAPE =", X.shape)
+        print("X SHAPE =", X.shape)
 
-# Vérification importante
-        if X.shape != (10, 11):
-           return {
-        "error": "bad_input_shape",
-        "shape": str(X.shape)
-    }
-
-        X = X.reshape(1, 110)
-
-        print("FINAL X SHAPE =", X.shape)
-
-# Vérification du modèle
-        try:
-         print(
-        "MODEL FEATURES =",
-        model.estimators_[0].n_features_in_
-    )
-        except Exception as e:
-            print("FEATURE CHECK ERROR =", e)
-
-# =========================
-# PREDICT
-# =========================
-
-        pred = model.predict(X)
-
-        print("PRED TYPE =", type(pred))
-        print("PRED SHAPE =", pred.shape)
-
-        pred = pred[0]
+        # =========================
+        # PREDICT
+        # =========================
+        pred = model.predict(X)[0]
 
         def safe(v):
             try:
@@ -1124,33 +1061,31 @@ def predict():
         }
 
     except Exception as e:
-
         import traceback
-
-        print("===== ERROR =====")
         print(traceback.format_exc())
 
         return {
             "error": "runtime_error",
             "message": str(e)
         }
+
             
 @app.get("/api/realtime")
 def realtime():
 
     try:
-        df = get_history_mesures().tail(100)
-        print("COLONNES DF =")
-        print(df.columns.tolist())
+        df = get_history_mesures()
 
         if df is None or df.empty:
             return {"error": "no data"}
 
+        df = df.tail(100)
+
         required = ["timestamp","pm25","pm10","co2","nox","sox","nhx"]
 
-        for c in required:
-            if c not in df.columns:
-                return {"error": f"missing column {c}"}
+        missing = [c for c in required if c not in df.columns]
+        if missing:
+            return {"error": "missing columns", "message": missing}
 
         df = df.fillna(0)
 

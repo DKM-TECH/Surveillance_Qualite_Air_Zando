@@ -22,16 +22,16 @@ target_cols = [
     "nhx"
 ]
 
-external_cols = [
-    "temperature",
-    "humidity",
-    "wind_speed",
-    "rainfall",
-    "traffic_index"
-]
+#external_cols = [
+#   "temperature",
+#   "humidity",
+#    "wind_speed",
+#    "rainfall",
+#    "traffic_index"
+#]
 
 # Vérification colonnes
-required_cols = target_cols + external_cols
+required_cols = target_cols #+ external_cols
 
 missing = [c for c in required_cols if c not in df.columns]
 
@@ -42,7 +42,7 @@ if missing:
 # FEATURES
 # =========================
 
-feature_cols = target_cols + external_cols
+feature_cols = target_cols #+ external_cols
 
 WINDOW = 10
 
