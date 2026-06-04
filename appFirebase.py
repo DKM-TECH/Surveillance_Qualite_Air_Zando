@@ -947,7 +947,7 @@ import joblib
 model = None
 
 MODEL_PATH = "air_xgb_model.pkl"
-
+import xgboost as xgb
 
 @app.get("/predict")
 def predict():
@@ -962,15 +962,15 @@ def predict():
     print("WORKDIR =", os.getcwd())
     print("FILES =", os.listdir("."))
     if model is None:
-        try:
-            model = joblib.load(MODEL_PATH)
-            print("✅ Modèle chargé dans /predict")
-        except Exception as e:
-            return {
-                "error": "model_load_failed",
-                "message": str(e),
-                "prediction": None
-            }
+            try:
+                model = joblib.load("air_xgb_model.pkl")
+                print("✅ Modèle XGBoost chargé (JSON)")
+                print("TYPE:", type(model))
+
+            except Exception as e:
+                print("❌ ERREUR CHARGEMENT XGBOOST:")
+                print(e)
+                model = None
 
     try:
 

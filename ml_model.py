@@ -173,8 +173,7 @@ plt.show()
 # =========================
 # SAVE MODEL
 # =========================
-
-joblib.dump(model, "air_xgb_model.pkl")
-joblib.dump(feature_cols, "feature_cols.pkl")
+joblib.dump(model, "air_xgb_model.pkl", compress=3)
+joblib.dump(feature_cols, "feature_cols.pkl", compress=3)
 
 print("\nMODEL XGBOOST OK ✔️")
