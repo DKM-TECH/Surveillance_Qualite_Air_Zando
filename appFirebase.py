@@ -1074,7 +1074,7 @@ def realtime():
 
     try:
         print("CALLED REALTIME")
-        df = get_history_mesures().tail(100)
+        df = get_history_mesures().tail(50)
 
         if df is None or df.empty:
             return {"error": "no data"}
