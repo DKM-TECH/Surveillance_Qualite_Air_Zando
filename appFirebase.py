@@ -985,7 +985,7 @@ def predict():
         # LOAD DATA
         # =========================
         df = get_history_mesures()
-
+        print(df.columns.tolist())
         if df is None:
             return {
                 "error": "no_data",
@@ -1097,7 +1097,9 @@ def predict():
 def realtime():
 
     try:
-        df = get_history_mesures()
+        df = get_history_mesures().tail(100)
+        print("COLONNES DF =")
+        print(df.columns.tolist())
 
         if df is None or df.empty:
             return {"error": "no data"}

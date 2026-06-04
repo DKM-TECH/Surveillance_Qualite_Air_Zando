@@ -106,6 +106,12 @@ model.fit(X_train_flat, y_train)
 # =========================
 # PREDICTION
 # =========================
+print("X SHAPE =", X.shape)
+
+try:
+    print("MODEL FEATURES =", model.estimators_[0].n_features_in_)
+except Exception as e:
+    print(e)
 
 y_pred = model.predict(X_test_flat)
 
