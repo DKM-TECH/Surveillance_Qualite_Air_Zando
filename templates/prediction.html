@@ -341,6 +341,17 @@ async function updateChart(){
             "Erreur réseau backend";
     }
 }
+const realtimeResponse = await fetch(`${BASE_URL}/api/realtime`);
+const predictionResponse = await fetch(`${BASE_URL}/predict`);
+
+console.log("Realtime status =", realtimeResponse.status);
+console.log("Predict status =", predictionResponse.status);
+
+const data = await realtimeResponse.json();
+const res = await predictionResponse.json();
+
+console.log("REALTIME =", data);
+console.log("PREDICT =", res);
 updateChart();
 setInterval(updateChart, 3000);
 
