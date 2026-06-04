@@ -441,10 +441,10 @@ function safe(v){
 async function updateChart(){
 
     try{
-
+       const BASE_URL = "https://surveillance-qualite-air-zando.onrender.com";
         const [realtimeResponse, predictionResponse] = await Promise.all([
-            fetch("/api/realtime"),
-            fetch("/predict")
+        fetch(`${BASE_URL}/api/realtime`),
+        fetch(`${BASE_URL}/predict`)
         ]);
 
         if(!realtimeResponse.ok || !predictionResponse.ok){
