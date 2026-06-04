@@ -978,9 +978,7 @@ def predict():
         # 1. LOAD DATA
         # =========================
         df = get_history_mesures()
-        print("COLONNES DF =")
-        print(df.columns.tolist())
-
+       
         if df is None or df.empty:
             return {
                 "error": "no_data",
@@ -1002,7 +1000,8 @@ def predict():
 
         df = df.dropna(subset=cols)
         df = df.sort_values(by="timestamp")
-
+        print("COLONNES DF =")
+        print(df.columns.tolist())
         WINDOW = 10
 
         if len(df) < WINDOW:
