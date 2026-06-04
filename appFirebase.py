@@ -954,51 +954,57 @@ def predict():
 
     global model
 
-    
-
-        # =========================
-        # LOAD MODEL
-        # =========================
-    if model is None:
-            try:
-                model = joblib.load("air_xgb_model.pkl")
-                print("✅ Modèle chargé")
-                print("TYPE =", type(model))
-            except Exception as e:
-                return {
-                    "error": "model_load_failed",
-                    "message": str(e)
-                }
-   
-
     try:
 
         print("===== PREDICT START =====")
 
-        global model
-
+        # =========================
+        # LOAD MODEL
+        # =========================
         if model is None:
-            print("MODEL NONE")
-            model = joblib.load("air_xgb_model.pkl")
+
+            print("MODEL NONE -> chargement")
+
+            try:
+                model = joblib.load("air_xgb_model.pkl")
+                print("✅ Modèle chargé")
+                print("TYPE =", type(model))
+
+            except Exception as e:
+                print("❌ ERREUR CHARGEMENT MODELE")
+                print(str(e))
+
+                return {
+                    "error": "model_load_failed",
+                    "message": str(e)
+                }
 
         print("MODEL OK")
 
-        df = get_history_mesures()
-
-        print("DF SHAPE =", df.shape)
         # =========================
         # LOAD DATA
         # =========================
-       # df = get_history_mesures()
+        df = get_history_mesures()
 
-        if df is None or df.empty:
+        if df is None:
             return {
-                "error": "no_data"
+                "error": "no_data",
+                "message": "DataFrame vide"
             }
 
+        print("DF SHAPE =", df.shape)
+
+        if df.empty:
+            return {
+                "error": "no_data",
+                "message": "Aucune donnée"
+            }
+
+        # =========================
+        # CLEAN DATA
+        # =========================
         df["timestamp"] = df["timestamp"].apply(convert_timestamp)
 
-        # Colonnes réellement disponibles
         cols = [
             "pm25",
             "pm10",
@@ -1008,7 +1014,6 @@ def predict():
             "nhx"
         ]
 
-        # Vérification
         missing = [c for c in cols if c not in df.columns]
 
         if missing:
@@ -1040,6 +1045,7 @@ def predict():
         # =========================
         pred = model.predict(X)
 
+        print("PRED TYPE =", type(pred))
         print("PRED SHAPE =", pred.shape)
 
         pred = pred[0]
@@ -1077,15 +1083,16 @@ def predict():
 
     except Exception as e:
 
-        #import traceback
+        import traceback
 
+        print("===== ERROR =====")
         print(traceback.format_exc())
 
         return {
             "error": "runtime_error",
             "message": str(e)
         }
-        
+            
 @app.get("/api/realtime")
 def realtime():
 
