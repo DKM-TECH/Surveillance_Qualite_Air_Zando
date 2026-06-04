@@ -1137,11 +1137,18 @@ def predict():
         
 @app.get("/api/realtime")
 def realtime():
+
     try:
         df = get_history_mesures()
 
         if df is None or df.empty:
             return {"error": "no data"}
+
+        required = ["timestamp","pm25","pm10","co2","nox","sox","nhx"]
+
+        for c in required:
+            if c not in df.columns:
+                return {"error": f"missing column {c}"}
 
         df = df.fillna(0)
 
@@ -1152,7 +1159,7 @@ def realtime():
             "co2": df["co2"].tolist(),
             "nox": df["nox"].tolist(),
             "sox": df["sox"].tolist(),
-            "nhx": df["nhx"].tolist(),
+            "nhx": df["nhx"].tolist()
         }
 
     except Exception as e:

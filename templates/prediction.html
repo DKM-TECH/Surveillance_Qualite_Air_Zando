@@ -278,11 +278,9 @@ const chart = new Chart(ctx, {
         }
     }
 });
-
 function safe(v){
     return (v === null || v === undefined || isNaN(v)) ? 0 : Number(v);
 }
-
 async function updateChart(){
 
     try{
@@ -293,6 +291,12 @@ async function updateChart(){
             fetch(`${BASE_URL}/predict`)
         ]);
 
+        if(!realtimeResponse.ok || !predictionResponse.ok){
+            document.getElementById("alertBox").innerText =
+                "API ERROR: serveur indisponible";
+            return;
+        }
+
         const data = await realtimeResponse.json();
         const res = await predictionResponse.json();
 
@@ -302,9 +306,13 @@ async function updateChart(){
             return;
         }
 
-        chart.data.labels = data.labels;
+        if(!data.labels){
+            document.getElementById("alertBox").innerText =
+                "API ERROR: labels manquants";
+            return;
+        }
 
-        const safe = v => (isNaN(v) || v == null) ? 0 : Number(v);
+        chart.data.labels = data.labels;
 
         chart.data.datasets[0].data = data.pm25.map(safe);
         chart.data.datasets[1].data = data.pm10.map(safe);
@@ -313,7 +321,10 @@ async function updateChart(){
         chart.data.datasets[4].data = data.sox.map(safe);
         chart.data.datasets[5].data = data.nhx.map(safe);
 
-        const fill = v => Array(data.labels.length).fill(safe(v));
+        const fill = (v) => {
+    if(v === undefined || v === null) return Array(data.labels.length).fill(0);
+    return Array(data.labels.length).fill(safe(v));
+    };
 
         chart.data.datasets[6].data = fill(res.prediction?.pm25);
         chart.data.datasets[7].data = fill(res.prediction?.pm10);
@@ -326,6 +337,8 @@ async function updateChart(){
 
     } catch(err){
         console.log("FETCH ERROR:", err);
+        document.getElementById("alertBox").innerText =
+            "Erreur réseau backend";
     }
 }
 updateChart();
