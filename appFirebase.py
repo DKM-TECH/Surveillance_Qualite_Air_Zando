@@ -954,80 +954,87 @@ def predict():
 
     global model
 
-    # =========================
-    # 0. LAZY LOAD MODEL
-    # =========================
-    import os
-
-    print("WORKDIR =", os.getcwd())
-    print("FILES =", os.listdir("."))
-    if model is None:
-            try:
-                model = joblib.load("air_xgb_model.pkl")
-                print("✅ Modèle XGBoost chargé (JSON)")
-                print("TYPE:", type(model))
-
-            except Exception as e:
-                print("❌ ERREUR CHARGEMENT XGBOOST:")
-                print(e)
-                model = None
-
     try:
 
         # =========================
-        # 1. LOAD DATA
+        # LOAD MODEL
+        # =========================
+        if model is None:
+            try:
+                model = joblib.load("air_xgb_model.pkl")
+                print("✅ Modèle chargé")
+                print("TYPE =", type(model))
+            except Exception as e:
+                return {
+                    "error": "model_load_failed",
+                    "message": str(e)
+                }
+
+        # =========================
+        # LOAD DATA
         # =========================
         df = get_history_mesures()
-       
+
         if df is None or df.empty:
             return {
-                "error": "no_data",
-                "prediction": None,
-                "status": "NO_DATA",
-                "alert": "Aucune donnée"
+                "error": "no_data"
             }
 
-        # =========================
-        # 2. CLEAN DATA
-        # =========================
         df["timestamp"] = df["timestamp"].apply(convert_timestamp)
 
+        # Colonnes réellement disponibles
         cols = [
-            "pm25", "pm10", "co2", "nox", "sox", "nhx",
-            "temperature", "humidity", "wind_speed",
-            "rainfall", "traffic_index"
+            "pm25",
+            "pm10",
+            "co2",
+            "nox",
+            "sox",
+            "nhx"
         ]
 
+        # Vérification
+        missing = [c for c in cols if c not in df.columns]
+
+        if missing:
+            return {
+                "error": "missing_columns",
+                "message": missing
+            }
+
         df = df.dropna(subset=cols)
-        df = df.sort_values(by="timestamp")
-        print("COLONNES DF =")
-        print(df.columns.tolist())
+        df = df.sort_values("timestamp")
+
         WINDOW = 10
 
         if len(df) < WINDOW:
             return {
                 "error": "not_enough_data",
-                "prediction": None,
-                "status": "INSUFFICIENT_DATA"
+                "rows": len(df)
             }
 
         # =========================
-        # 3. BUILD INPUT
+        # BUILD INPUT
         # =========================
         X = df[cols].tail(WINDOW).values.reshape(1, -1)
 
+        print("X SHAPE =", X.shape)
+
         # =========================
-        # 4. PREDICT
+        # PREDICT
         # =========================
-        pred = model.predict(X)[0]
+        pred = model.predict(X)
+
+        print("PRED SHAPE =", pred.shape)
+
+        pred = pred[0]
 
         def safe(v):
             try:
-                return max(0, float(v))
+                return max(0.0, float(v))
             except:
                 return 0.0
 
-        data_pred = {
+        prediction = {
             "pm25": safe(pred[0]),
             "pm10": safe(pred[1]),
             "co2": safe(pred[2]),
@@ -1036,22 +1043,28 @@ def predict():
             "nhx": safe(pred[5])
         }
 
-        # =========================
-        # 5. CURRENT
-        # =========================
         last = df.iloc[-1]
 
-        current = {k: safe(last.get(k)) for k in cols[:6]}
+        current = {
+            "pm25": safe(last["pm25"]),
+            "pm10": safe(last["pm10"]),
+            "co2": safe(last["co2"]),
+            "nox": safe(last["nox"]),
+            "sox": safe(last["sox"]),
+            "nhx": safe(last["nhx"])
+        }
 
-        # =========================
-        # 6. RESPONSE
-        # =========================
         return {
             "current": current,
-            "prediction": data_pred
+            "prediction": prediction
         }
 
     except Exception as e:
+
+        import traceback
+
+        print(traceback.format_exc())
+
         return {
             "error": "runtime_error",
             "message": str(e)
