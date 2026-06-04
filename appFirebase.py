@@ -953,6 +953,7 @@ import traceback
 def predict():
 
     global model
+    print("PREDICT CALLED")
 
     try:
         print("===== PREDICT START =====")
@@ -976,7 +977,7 @@ def predict():
         # =========================
         # LOAD DATA
         # =========================
-        df = get_history_mesures()
+        df = get_history_mesures().tail(50)
 
         if df is None or df.empty:
             return {
@@ -993,9 +994,7 @@ def predict():
         df = df.sort_values("timestamp")
 
         cols = [
-            "pm25", "pm10", "co2", "nox", "sox", "nhx",
-            "temperature", "humidity", "wind_speed",
-            "rainfall", "traffic_index"
+            "pm25", "pm10", "co2", "nox", "sox", "nhx"
         ]
 
         # garder seulement colonnes existantes
@@ -1074,7 +1073,8 @@ def predict():
 def realtime():
 
     try:
-        df = get_history_mesures()
+        print("CALLED REALTIME")
+        df = get_history_mesures().tail(100)
 
         if df is None or df.empty:
             return {"error": "no data"}
