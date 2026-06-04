@@ -937,34 +937,35 @@ def prediction_page(request: Request):
 import os
 import joblib
 
-MODEL_PATH = "air_xgb_model.pkl"
-FEATURES_PATH = "feature_cols.pkl"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+MODEL_PATH = os.path.join(BASE_DIR, "air_xgb_model.pkl")
+FEATURES_PATH = os.path.join(BASE_DIR, "feature_cols.pkl")
 
 model = None
 feature_cols = None
 
 try:
-
     # =========================
-    # LOAD XGBOOST MODEL
+    # LOAD MODEL
     # =========================
     if os.path.exists(MODEL_PATH):
         model = joblib.load(MODEL_PATH)
         print("✅ Modèle XGBoost chargé")
     else:
-        print("⚠️ Modèle XGBoost introuvable")
+        print("❌ Modèle introuvable :", MODEL_PATH)
 
     # =========================
-    # LOAD FEATURES ORDER
+    # LOAD FEATURES
     # =========================
     if os.path.exists(FEATURES_PATH):
         feature_cols = joblib.load(FEATURES_PATH)
-        print("✅ Liste des variables chargée")
+        print("✅ Features chargées")
     else:
-        print("⚠️ feature_cols.pkl introuvable")
+        print("❌ Features introuvables :", FEATURES_PATH)
 
 except Exception as e:
-    print(f"⚠️ Erreur chargement modèle : {e}")
+    print("⚠️ Erreur chargement modèle :", str(e))
 
 #import numpy as np
 
