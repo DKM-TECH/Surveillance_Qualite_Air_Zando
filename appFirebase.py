@@ -401,7 +401,7 @@ def gauges(request: Request):
             "message": message
         }
     )
-# --------------------
+## --------------------
 # Page Apriori
 # --------------------
 @app.get("/apriori", response_class=HTMLResponse)
@@ -409,90 +409,97 @@ def apriori_page(request: Request):
 
     df = get_history_mesures()
 
-    dernieres_mesures = {
-        k: 0.0 for k in SEUILS
-    }
-
+    # =========================
+    # INIT VARIABLES
+    # =========================
+    dernieres_mesures = {k: 0.0 for k in SEUILS}
     polluant = None
     table_dataset = []
     rules_html = []
 
-    # -------------------------
-    # Dernières mesures
-    # -------------------------
-
-    if not df.empty:
-
-        df = df.sort_values(
-            by="timestamp",
-            ascending=False
+    # =========================
+    # VALIDATION DATAFRAME
+    # =========================
+    if df is None or df.empty:
+        return templates.TemplateResponse(
+            "apriori.html",
+            {
+                "request": request,
+                "dataset": [],
+                "rules": [],
+                "polluant_influent": None,
+                "dernieres_mesures": dernieres_mesures,
+                "seuils": SEUILS
+            }
         )
 
-        latest = df.iloc[0]
+    # =========================
+    # TRI + DERNIÈRE MESURE
+    # =========================
+    df = df.sort_values(by="timestamp", ascending=False)
 
-        for k in SEUILS:
-            dernieres_mesures[k] = float(
-                latest.get(k, 0)
-            )
+    latest = df.iloc[0]
 
-    # -------------------------
+    for k in SEUILS:
+        try:
+            dernieres_mesures[k] = float(latest.get(k, 0))
+        except:
+            dernieres_mesures[k] = 0.0
+
+    # =========================
+    # PRÉPARATION APRIORI
+    # =========================
+    if len(df) < 5:
+        return templates.TemplateResponse(
+            "apriori.html",
+            {
+                "request": request,
+                "dataset": [],
+                "rules": [],
+                "polluant_influent": None,
+                "dernieres_mesures": dernieres_mesures,
+                "seuils": SEUILS
+            }
+        )
+
+    # =========================
+    # EXTRACTION POLLUANTS
+    # =========================
+    cols = list(SEUILS.keys())
+    df_polluants = df[cols].fillna(0)
+
+    # =========================
+    # BINARISATION
+    # =========================
+    df_bin = pd.DataFrame()
+
+    for col, seuil in SEUILS.items():
+
+        df_bin[f"{col}_ELEVE"] = (df_polluants[col] > seuil)
+        df_bin[f"{col}_TRES_ELEVE"] = (df_polluants[col] > seuil * 1.5)
+
+    df_bin = df_bin.astype(int)
+
+    # suppression colonnes vides
+    df_bin = df_bin.loc[:, df_bin.sum(axis=0) > 0]
+
+    # dataset pour frontend
+    table_dataset = df_bin.to_dict(orient="records")[:50]
+
+    print("DF BIN SHAPE:", df_bin.shape)
+
+    # =========================
     # APRIORI
-    # -------------------------
-
-    if not df.empty and len(df) >= 5:
-
-        # colonnes utiles
-        df_polluants = df[
-            list(SEUILS.keys())
-        ].copy()
-
-        # nettoyage NAN
-        df_polluants = df_polluants.fillna(0)
-
-        # -------------------------
-        # BINARISATION
-        # -------------------------
-
-        df_bin = pd.DataFrame()
-
-        for col in SEUILS:
-
-            seuil = SEUILS[col]
-
-            # dépassement
-            df_bin[col + "_ELEVE"] = (
-                df_polluants[col] > seuil
-            )
-
-            # dépassement critique
-            df_bin[col + "_TRES_ELEVE"] = (
-                df_polluants[col] > seuil * 1.5
-            )
-
-        # bool -> int
-        df_bin = df_bin.astype(int)
-
-        # suppression lignes vides
-        df_bin = df_bin.loc[:, (df_bin.sum(axis=0) > 0)]
-
-        print("DF BIN SHAPE:", df_bin.shape)
-        # dataset HTML
-        table_dataset = df_bin.to_dict(
-            orient="records"
-        )
-        table_dataset = table_dataset[:50]
-
-        # -------------------------
-        # APRIORI
-        # -------------------------
+    # =========================
+    try:
 
         if not df_bin.empty:
 
             frequent_itemsets = apriori(
-             df_bin,
+                df_bin,
                 min_support=0.3,
-            use_colnames=True,
-            max_len=3
+                use_colnames=True,
+                max_len=3
             )
 
             if not frequent_itemsets.empty:
@@ -505,28 +512,18 @@ def apriori_page(request: Request):
 
                 if not rules.empty:
 
-                    # graphique réseau
                     plot_apriori_network(rules)
 
-                    # conversion listes
-                    rules["antecedents"] = rules[
-                        "antecedents"
-                    ].apply(list)
+                    # conversion sets -> list
+                    rules["antecedents"] = rules["antecedents"].apply(list)
+                    rules["consequents"] = rules["consequents"].apply(list)
 
-                    rules["consequents"] = rules[
-                        "consequents"
-                    ].apply(list)
-
-                    # arrondir metrics
-                    for col in [
-                        "support",
-                        "confidence",
-                        "lift",
-                        "leverage",
-                        "conviction"
-                    ]:
-
+                    # arrondir valeurs
+                    for col in ["support", "confidence", "lift", "leverage", "conviction"]:
                         rules[col] = rules[col].round(3)
+
+                    # tri
+                    rules = rules.sort_values(by="lift", ascending=False).head(50)
 
                     metrics_cols = [
                         "antecedents",
@@ -538,42 +535,36 @@ def apriori_page(request: Request):
                         "conviction"
                     ]
 
-                    # Trier par lift décroissant
-                    rules = rules.sort_values(
-                    by="lift",
-                    ascending=False
-                    )
-
-                    # garder seulement TOP 50
-                    rules = rules.head(50)
-
-                    rules_html = rules[
-                          metrics_cols
-                    ].to_dict(
-                     orient="records"
-                    )
+                    rules_html = rules[metrics_cols].to_dict(orient="records")
 
                     # polluant dominant
-                    counts = rules[
-                        "antecedents"
-                    ].explode().value_counts()
-
+                    counts = rules["antecedents"].explode().value_counts()
                     if not counts.empty:
                         polluant = counts.idxmax()
+
+    except Exception as e:
+        print("Apriori error:", e)
+
+    # =========================
+    # DEBUG FINAL
+    # =========================
     print("Dataset size =", len(table_dataset))
     print("Rules size =", len(rules_html))
 
+    # =========================
+    # TEMPLATE
+    # =========================
     return templates.TemplateResponse(
-    "apriori.html",
-    {
-        "request": request,
-        "dataset": table_dataset,
-        "rules": rules_html,
-        "polluant_influent": polluant,
-        "dernieres_mesures": dernieres_mesures,
-        "seuils": SEUILS
-    }
-)
+        "apriori.html",
+        {
+            "request": request,
+            "dataset": table_dataset,
+            "rules": rules_html,
+            "polluant_influent": polluant,
+            "dernieres_mesures": dernieres_mesures,
+            "seuils": SEUILS
+        }
+    )
 
 
 def plot_apriori_network(rules):
@@ -986,67 +977,164 @@ except Exception as e:
 def predict():
 
     try:
-        if model is None:
-            return {"error": "model not loaded"}
 
+        # =========================
+        # 1. CHECK MODEL
+        # =========================
+        if model is None:
+            return {
+                "error": "model_not_loaded",
+                "current": None,
+                "prediction": None,
+                "aqi": None,
+                "status": "ERROR",
+                "alert": "Modèle IA non chargé"
+            }
+
+        # =========================
+        # 2. LOAD DATA
+        # =========================
         df = get_history_mesures()
 
         if df is None or df.empty:
-            return {"error": "no data"}
+            return {
+                "error": "no_data",
+                "current": None,
+                "prediction": None,
+                "aqi": None,
+                "status": "NO_DATA",
+                "alert": "Aucune donnée disponible"
+            }
 
+        # =========================
+        # 3. CLEAN DATA
+        # =========================
         df["timestamp"] = df["timestamp"].apply(convert_timestamp)
 
         cols = [
-            "pm25","pm10","co2","nox","sox","nhx",
-            "temperature","humidity","wind_speed","rainfall","traffic_index"
+            "pm25", "pm10", "co2", "nox", "sox", "nhx",
+            "temperature", "humidity", "wind_speed",
+            "rainfall", "traffic_index"
         ]
 
         df = df.dropna(subset=cols + ["timestamp"])
         df = df.sort_values(by="timestamp")
 
         WINDOW = 10
+
         if len(df) < WINDOW:
-            return {"error": "not enough data"}
+            return {
+                "error": "not_enough_data",
+                "current": None,
+                "prediction": None,
+                "aqi": None,
+                "status": "INSUFFICIENT_DATA",
+                "alert": "Pas assez de données pour prédire"
+            }
 
+        # =========================
+        # 4. BUILD WINDOW
+        # =========================
         window = df[cols].tail(WINDOW).values
-        X = window.reshape(1, -1)
 
-        pred = model.predict(X)[0]
+        try:
+            X = window.reshape(1, -1)
+        except Exception as e:
+            return {
+                "error": "reshape_failed",
+                "message": str(e),
+                "current": None,
+                "prediction": None,
+                "aqi": None,
+                "status": "ERROR",
+                "alert": "Erreur de préparation des données"
+            }
+
+        # =========================
+        # 5. PREDICTION SAFE
+        # =========================
+        try:
+            pred = model.predict(X)[0]
+        except Exception as e:
+            return {
+                "error": "model_prediction_failed",
+                "message": str(e),
+                "current": None,
+                "prediction": None,
+                "aqi": None,
+                "status": "ERROR",
+                "alert": "Erreur du modèle IA"
+            }
+
+        # =========================
+        # 6. SANITIZE OUTPUT
+        # =========================
+        def safe(v):
+            try:
+                v = float(v)
+                return max(0, v)
+            except:
+                return 0.0
 
         data_pred = {
-            "pm25": max(0, float(pred[0])),
-            "pm10": max(0, float(pred[1])),
-            "co2": max(0, float(pred[2])),
-            "nox": max(0, float(pred[3])),
-            "sox": max(0, float(pred[4])),
-            "nhx": max(0, float(pred[5]))
+            "pm25": safe(pred[0]),
+            "pm10": safe(pred[1]),
+            "co2": safe(pred[2]),
+            "nox": safe(pred[3]),
+            "sox": safe(pred[4]),
+            "nhx": safe(pred[5])
         }
 
-        aqi, details = compute_global_aqi(data_pred)
-        status, alert = interpret_aqi(aqi)
-
+        # =========================
+        # 7. CURRENT DATA (SAFE)
+        # =========================
         last = df.iloc[-1]
 
+        current = {
+            "pm25": safe(last.get("pm25")),
+            "pm10": safe(last.get("pm10")),
+            "co2": safe(last.get("co2")),
+            "nox": safe(last.get("nox")),
+            "sox": safe(last.get("sox")),
+            "nhx": safe(last.get("nhx"))
+        }
+
+        # =========================
+        # 8. AQI SAFE
+        # =========================
+        try:
+            aqi, details = compute_global_aqi(data_pred)
+            status, alert = interpret_aqi(aqi)
+        except Exception as e:
+            aqi = 0
+            details = {}
+            status = "ERROR"
+            alert = "AQI computation failed"
+
+        # =========================
+        # 9. RESPONSE FINAL
+        # =========================
         return {
-            "current": {
-                "pm25": float(last["pm25"]),
-                "pm10": float(last["pm10"]),
-                "co2": float(last["co2"]),
-                "nox": float(last["nox"]),
-                "sox": float(last["sox"]),
-                "nhx": float(last["nhx"])
-            },
+            "current": current,
             "prediction": data_pred,
-            "aqi": float(aqi),
+            "aqi": round(float(aqi), 2),
             "status": status,
             "alert": alert,
             "details": details
         }
 
     except Exception as e:
-        return {"error": str(e)}
+        # fallback ultime (ne JAMAIS casser l'API)
+        return {
+            "error": "unexpected_error",
+            "message": str(e),
+            "current": None,
+            "prediction": None,
+            "aqi": None,
+            "status": "ERROR",
+            "alert": "Erreur serveur interne"
+        }
         
-    
 @app.get("/api/realtime")
 def realtime():
 
