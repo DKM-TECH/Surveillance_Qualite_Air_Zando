@@ -934,37 +934,6 @@ def prediction_page(request: Request):
         "prediction.html",
         {"request": request}
     )
-import os
-import joblib
-
-import os
-import joblib
-
-MODEL_PATH = "air_xgb_model.pkl"
-FEATURES_PATH = "feature_cols.pkl"
-
-model = None
-feature_cols = None
-
-try:
-    # =========================
-    # LOAD MODEL
-    # =========================
-    model = joblib.load(MODEL_PATH)
-    print("✅ Modèle XGBoost chargé")
-
-except Exception as e:
-    print("❌ Erreur chargement modèle :", e)
-
-try:
-    # =========================
-    # LOAD FEATURES
-    # =========================
-    feature_cols = joblib.load(FEATURES_PATH)
-    print("✅ Features chargées")
-
-except Exception as e:
-    print("❌ Erreur chargement features :", e)
 #import numpy as np
 
 #import numpy as np
@@ -972,41 +941,50 @@ except Exception as e:
 # scalers doivent être chargés globalement
 # scaler_x = joblib.load(...)
 # scaler_y = joblib.load(...)
+import os
+import joblib
+
+model = None
+
+MODEL_PATH = "air_xgb_model.pkl"
+
+
 @app.get("/predict")
 def predict():
+
+    global model
+
+    # =========================
+    # 0. LAZY LOAD MODEL
+    # =========================
+    if model is None:
+        try:
+            model = joblib.load(MODEL_PATH)
+            print("✅ Modèle chargé dans /predict")
+        except Exception as e:
+            return {
+                "error": "model_load_failed",
+                "message": str(e),
+                "prediction": None
+            }
 
     try:
 
         # =========================
-        # 1. CHECK MODEL
-        # =========================
-        if model is None:
-            return {
-                "error": "model_not_loaded",
-                "current": None,
-                "prediction": None,
-                "aqi": None,
-                "status": "ERROR",
-                "alert": "Modèle IA non chargé"
-            }
-
-        # =========================
-        # 2. LOAD DATA
+        # 1. LOAD DATA
         # =========================
         df = get_history_mesures()
 
         if df is None or df.empty:
             return {
                 "error": "no_data",
-                "current": None,
                 "prediction": None,
-                "aqi": None,
                 "status": "NO_DATA",
-                "alert": "Aucune donnée disponible"
+                "alert": "Aucune donnée"
             }
 
         # =========================
-        # 3. CLEAN DATA
+        # 2. CLEAN DATA
         # =========================
         df["timestamp"] = df["timestamp"].apply(convert_timestamp)
 
@@ -1016,7 +994,7 @@ def predict():
             "rainfall", "traffic_index"
         ]
 
-        df = df.dropna(subset=cols + ["timestamp"])
+        df = df.dropna(subset=cols)
         df = df.sort_values(by="timestamp")
 
         WINDOW = 10
@@ -1024,54 +1002,23 @@ def predict():
         if len(df) < WINDOW:
             return {
                 "error": "not_enough_data",
-                "current": None,
                 "prediction": None,
-                "aqi": None,
-                "status": "INSUFFICIENT_DATA",
-                "alert": "Pas assez de données pour prédire"
+                "status": "INSUFFICIENT_DATA"
             }
 
         # =========================
-        # 4. BUILD WINDOW
+        # 3. BUILD INPUT
         # =========================
-        window = df[cols].tail(WINDOW).values
-
-        try:
-            X = window.reshape(1, -1)
-        except Exception as e:
-            return {
-                "error": "reshape_failed",
-                "message": str(e),
-                "current": None,
-                "prediction": None,
-                "aqi": None,
-                "status": "ERROR",
-                "alert": "Erreur de préparation des données"
-            }
+        X = df[cols].tail(WINDOW).values.reshape(1, -1)
 
         # =========================
-        # 5. PREDICTION SAFE
+        # 4. PREDICT
         # =========================
-        try:
-            pred = model.predict(X)[0]
-        except Exception as e:
-            return {
-                "error": "model_prediction_failed",
-                "message": str(e),
-                "current": None,
-                "prediction": None,
-                "aqi": None,
-                "status": "ERROR",
-                "alert": "Erreur du modèle IA"
-            }
+        pred = model.predict(X)[0]
 
-        # =========================
-        # 6. SANITIZE OUTPUT
-        # =========================
         def safe(v):
             try:
-                v = float(v)
-                return max(0, v)
+                return max(0, float(v))
             except:
                 return 0.0
 
@@ -1085,53 +1032,24 @@ def predict():
         }
 
         # =========================
-        # 7. CURRENT DATA (SAFE)
+        # 5. CURRENT
         # =========================
         last = df.iloc[-1]
 
-        current = {
-            "pm25": safe(last.get("pm25")),
-            "pm10": safe(last.get("pm10")),
-            "co2": safe(last.get("co2")),
-            "nox": safe(last.get("nox")),
-            "sox": safe(last.get("sox")),
-            "nhx": safe(last.get("nhx"))
-        }
+        current = {k: safe(last.get(k)) for k in cols[:6]}
 
         # =========================
-        # 8. AQI SAFE
-        # =========================
-        try:
-            aqi, details = compute_global_aqi(data_pred)
-            status, alert = interpret_aqi(aqi)
-        except Exception as e:
-            aqi = 0
-            details = {}
-            status = "ERROR"
-            alert = "AQI computation failed"
-
-        # =========================
-        # 9. RESPONSE FINAL
+        # 6. RESPONSE
         # =========================
         return {
             "current": current,
-            "prediction": data_pred,
-            "aqi": round(float(aqi), 2),
-            "status": status,
-            "alert": alert,
-            "details": details
+            "prediction": data_pred
         }
 
     except Exception as e:
-        # fallback ultime (ne JAMAIS casser l'API)
         return {
-            "error": "unexpected_error",
-            "message": str(e),
-            "current": None,
-            "prediction": None,
-            "aqi": None,
-            "status": "ERROR",
-            "alert": "Erreur serveur interne"
+            "error": "runtime_error",
+            "message": str(e)
         }
         
 @app.get("/api/realtime")
