@@ -978,6 +978,8 @@ def predict():
         # 1. LOAD DATA
         # =========================
         df = get_history_mesures()
+        print("COLONNES DF =")
+        print(df.columns.tolist())
 
         if df is None or df.empty:
             return {
