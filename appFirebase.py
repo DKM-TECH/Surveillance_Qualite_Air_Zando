@@ -1137,36 +1137,27 @@ def predict():
         
 @app.get("/api/realtime")
 def realtime():
+    try:
+        df = get_history_mesures()
 
-    df = get_history_mesures()
+        if df is None or df.empty:
+            return {"error": "no data"}
 
-    if df.empty:
-        return {}
+        df = df.fillna(0)
 
-    df["timestamp"] = df["timestamp"].apply(convert_timestamp)
+        return {
+            "labels": df["timestamp"].astype(str).tolist(),
+            "pm25": df["pm25"].tolist(),
+            "pm10": df["pm10"].tolist(),
+            "co2": df["co2"].tolist(),
+            "nox": df["nox"].tolist(),
+            "sox": df["sox"].tolist(),
+            "nhx": df["nhx"].tolist(),
+        }
 
-    df = (
-        df.sort_values("timestamp")
-          .tail(30)
-    )
-
-    return {
-        "labels": df["timestamp"].dt.strftime("%H:%M:%S").tolist(),
-
-        "pm25": df["pm25"].fillna(0).tolist(),
-        "pm10": df["pm10"].fillna(0).tolist(),
-        "co2": df["co2"].fillna(0).tolist(),
-        "nox": df["nox"].fillna(0).tolist(),
-        "sox": df["sox"].fillna(0).tolist(),
-        "nhx": df["nhx"].fillna(0).tolist(),
-
-        "temperature": df["temperature"].fillna(0).tolist(),
-        "humidity": df["humidity"].fillna(0).tolist(),
-        "wind_speed": df["wind_speed"].fillna(0).tolist(),
-        "rainfall": df["rainfall"].fillna(0).tolist(),
-        "traffic_index": df["traffic_index"].fillna(0).tolist()
-    }
-
+    except Exception as e:
+        return {"error": str(e)}
+    
 def pollutant_score(value, limit):
 
     if limit <= 0:

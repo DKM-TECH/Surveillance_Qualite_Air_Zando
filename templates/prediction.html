@@ -286,32 +286,26 @@ function safe(v){
 async function updateChart(){
 
     try{
-      
-        const [realtimeResponse, predictionResponse] = await Promise.all([
-        fetch('/api/realtime`),
-        fetch(`/predict`)
-        ]));
+        const BASE_URL = window.location.origin;
 
-        if(!realtimeResponse.ok || !predictionResponse.ok){
-            return;
-        }
+        const [realtimeResponse, predictionResponse] = await Promise.all([
+            fetch(`${BASE_URL}/api/realtime`),
+            fetch(`${BASE_URL}/predict`)
+        ]);
 
         const data = await realtimeResponse.json();
         const res = await predictionResponse.json();
 
-        if(!data?.labels || !res || res.error){
-        console.log("API ERROR:", res?.error);
-        document.getElementById("alertBox").innerHTML =
-        "⚠ API prediction indisponible : " + (res?.error || "unknown error");
-    return;
-    }
-
-        const current = res.current || {};
-        const pred = res.prediction || {};
+        if(data.error || res.error){
+            document.getElementById("alertBox").innerText =
+                "API ERROR: " + (data.error || res.error);
+            return;
+        }
 
         chart.data.labels = data.labels;
 
-        // ================= CURRENT =================
+        const safe = v => (isNaN(v) || v == null) ? 0 : Number(v);
+
         chart.data.datasets[0].data = data.pm25.map(safe);
         chart.data.datasets[1].data = data.pm10.map(safe);
         chart.data.datasets[2].data = data.co2.map(safe);
@@ -319,56 +313,21 @@ async function updateChart(){
         chart.data.datasets[4].data = data.sox.map(safe);
         chart.data.datasets[5].data = data.nhx.map(safe);
 
-        // ================= PREDICTION (flat line) =================
-        const fill = (v) => Array(data.labels.length).fill(safe(v));
+        const fill = v => Array(data.labels.length).fill(safe(v));
 
-        chart.data.datasets[6].data  = fill(pred.pm25);
-        chart.data.datasets[7].data  = fill(pred.pm10);
-        chart.data.datasets[8].data  = fill(pred.co2);
-        chart.data.datasets[9].data  = fill(pred.nox);
-        chart.data.datasets[10].data = fill(pred.sox);
-        chart.data.datasets[11].data = fill(pred.nhx);
+        chart.data.datasets[6].data = fill(res.prediction?.pm25);
+        chart.data.datasets[7].data = fill(res.prediction?.pm10);
+        chart.data.datasets[8].data = fill(res.prediction?.co2);
+        chart.data.datasets[9].data = fill(res.prediction?.nox);
+        chart.data.datasets[10].data = fill(res.prediction?.sox);
+        chart.data.datasets[11].data = fill(res.prediction?.nhx);
 
         chart.update();
 
-        // ================= CARDS =================
-        document.getElementById("pred_pm25").innerText = safe(pred.pm25).toFixed(2);
-        document.getElementById("pred_pm10").innerText = safe(pred.pm10).toFixed(2);
-        document.getElementById("pred_co2").innerText  = safe(pred.co2).toFixed(2);
-        document.getElementById("pred_nox").innerText  = safe(pred.nox).toFixed(2);
-        document.getElementById("pred_sox").innerText  = safe(pred.sox).toFixed(2);
-        document.getElementById("pred_nhx").innerText  = safe(pred.nhx).toFixed(2);
-
-        // ================= AQI =================
-        const alertBox = document.getElementById("alertBox");
-
-        if(res.aqi !== undefined){
-
-            alertBox.innerHTML =
-                `🌍 AQI GLOBAL: <b>${safe(res.aqi).toFixed(2)}</b><br>
-                 ${res.status || ""} — ${res.alert || ""}`;
-
-            const colorMap = {
-                "BON": "#22c55e",
-                "MODERE": "#eab308",
-                "MODÉRÉ": "#eab308",
-                "MAUVAIS": "#f97316",
-                "DANGEREUX": "#ef4444",
-                "TRÈS DANGEREUX": "#7f1d1d"
-            };
-
-            alertBox.style.color = colorMap[res.status] || "white";
-
-        } else {
-            alertBox.innerHTML = "⚠ AQI indisponible";
-            alertBox.style.color = "gray";
-        }
-
     } catch(err){
-        console.log("API ERROR:", err);
+        console.log("FETCH ERROR:", err);
     }
 }
-
 updateChart();
 setInterval(updateChart, 3000);
 
