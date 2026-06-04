@@ -1003,6 +1003,10 @@ def predict():
         # =========================
         # CLEAN DATA
         # =========================
+       # =========================
+# CLEAN DATA
+# =========================
+
         df["timestamp"] = df["timestamp"].apply(convert_timestamp)
 
         cols = [
@@ -1011,41 +1015,76 @@ def predict():
             "co2",
             "nox",
             "sox",
-            "nhx"
+            "nhx",
+            "temperature",
+            "humidity",
+            "wind_speed",
+            "rainfall",
+            "traffic_index"
         ]
+
+        print("COLONNES DF =")
+        print(df.columns.tolist())
 
         missing = [c for c in cols if c not in df.columns]
 
         if missing:
             return {
-                "error": "missing_columns",
-                "message": missing
-            }
+        "error": "missing_columns",
+        "message": missing
+        }
 
-        df = df.dropna(subset=cols)
         df = df.sort_values("timestamp")
+
+# Convertir en numérique
+        for c in cols:
+            df[c] = pd.to_numeric(df[c], errors="coerce")
+
+# Supprimer les lignes invalides
+        df = df.dropna(subset=cols)
+
+        print("DF CLEAN SHAPE =", df.shape)
 
         WINDOW = 10
 
         if len(df) < WINDOW:
-            return {
-                "error": "not_enough_data",
-                "rows": len(df)
-            }
+           return {
+        "error": "not_enough_data",
+        "rows": len(df)
+        }
 
-        # =========================
-        # BUILD INPUT
-        # =========================
-        missing = [c for c in cols if c not in df.columns]
+# =========================
+# BUILD INPUT
+# =========================
 
-        print("MISSING =", missing)
-        X = df[cols].tail(WINDOW).values.reshape(1, -1)
+        X = df.loc[:, cols].tail(WINDOW).values
 
-        print("X SHAPE =", X.shape)
+        print("WINDOW SHAPE =", X.shape)
 
-        # =========================
-        # PREDICT
-        # =========================
+# Vérification importante
+        if X.shape != (10, 11):
+           return {
+        "error": "bad_input_shape",
+        "shape": str(X.shape)
+    }
+
+        X = X.reshape(1, 110)
+
+        print("FINAL X SHAPE =", X.shape)
+
+# Vérification du modèle
+        try:
+         print(
+        "MODEL FEATURES =",
+        model.estimators_[0].n_features_in_
+    )
+        except Exception as e:
+            print("FEATURE CHECK ERROR =", e)
+
+# =========================
+# PREDICT
+# =========================
+
         pred = model.predict(X)
 
         print("PRED TYPE =", type(pred))
