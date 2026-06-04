@@ -1036,6 +1036,9 @@ def predict():
         # =========================
         # BUILD INPUT
         # =========================
+        missing = [c for c in cols if c not in df.columns]
+
+        print("MISSING =", missing)
         X = df[cols].tail(WINDOW).values.reshape(1, -1)
 
         print("X SHAPE =", X.shape)
