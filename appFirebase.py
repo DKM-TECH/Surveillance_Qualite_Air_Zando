@@ -957,6 +957,10 @@ def predict():
     # =========================
     # 0. LAZY LOAD MODEL
     # =========================
+    import os
+
+    print("WORKDIR =", os.getcwd())
+    print("FILES =", os.listdir("."))
     if model is None:
         try:
             model = joblib.load(MODEL_PATH)
