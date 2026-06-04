@@ -969,11 +969,27 @@ def predict():
                     "error": "model_load_failed",
                     "message": str(e)
                 }
+    import traceback
 
+    try:
+
+        print("===== PREDICT START =====")
+
+        global model
+
+        if model is None:
+            print("MODEL NONE")
+            model = joblib.load("air_xgb_model.pkl")
+
+        print("MODEL OK")
+
+        df = get_history_mesures()
+
+        print("DF SHAPE =", df.shape)
         # =========================
         # LOAD DATA
         # =========================
-        df = get_history_mesures()
+       # df = get_history_mesures()
 
         if df is None or df.empty:
             return {
