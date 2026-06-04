@@ -341,7 +341,28 @@ async function updateChart(){
         chart.data.datasets[9].data = fill(res.prediction?.nox);
         chart.data.datasets[10].data = fill(res.prediction?.sox);
         chart.data.datasets[11].data = fill(res.prediction?.nhx);
+         
+        // =====================
+// MAJ DES CARTES IA
+// =====================
 
+    document.getElementById("pred_pm25").innerText =
+    safe(res.prediction.pm25).toFixed(2);
+
+    document.getElementById("pred_pm10").innerText =
+    safe(res.prediction.pm10).toFixed(2);
+
+    document.getElementById("pred_co2").innerText =
+    safe(res.prediction.co2).toFixed(2);
+
+    document.getElementById("pred_nox").innerText =
+    safe(res.prediction.nox).toFixed(2);
+
+    document.getElementById("pred_sox").innerText =
+    safe(res.prediction.sox).toFixed(2);
+
+    document.getElementById("pred_nhx").innerText =
+    safe(res.prediction.nhx).toFixed(2);
         chart.update();
 
     } catch(err){
