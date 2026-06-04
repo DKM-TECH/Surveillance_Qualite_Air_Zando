@@ -977,7 +977,7 @@ def predict():
         # =========================
         # LOAD DATA
         # =========================
-        df = get_history_mesures().tail(50)
+        df = get_history_mesures().tail(100)
 
         if df is None or df.empty:
             return {
@@ -1074,7 +1074,7 @@ def realtime():
 
     try:
         print("CALLED REALTIME")
-        df = get_history_mesures().tail(50)
+        df = get_history_mesures().tail(100)
 
         if df is None or df.empty:
             return {"error": "no data"}
