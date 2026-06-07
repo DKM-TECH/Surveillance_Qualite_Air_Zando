@@ -66,16 +66,40 @@ def clean_df(df):
 def clean_timestamp(df):
     df = df.copy()
 
-    df["timestamp"] = (
-        df["timestamp"]
-        .replace(["Invalid Date", "NaN", "null", "", "None"], pd.NA)
+    if "timestamp" not in df.columns:
+        return df
+
+    # uniformisation string
+    ts = df["timestamp"].astype(str).str.strip()
+
+    # nettoyage valeurs invalides
+    ts = ts.replace(
+        ["Invalid Date", "NaN", "nan", "null", "None", "", "NoneType"],
+        pd.NA
     )
 
-    df["timestamp"] = pd.to_datetime(
-        df["timestamp"],
-        errors="coerce",
-        utc=True
-    )
+    def parse_ts(x):
+        if pd.isna(x):
+            return pd.NaT
+
+        try:
+            # numérique (unix)
+            if str(x).isdigit():
+                x = int(x)
+
+                # heuristique ms vs s
+                if x > 10**12:
+                    return pd.to_datetime(x, unit="ms", utc=True)
+                else:
+                    return pd.to_datetime(x, unit="s", utc=True)
+
+            # string ISO ou autre format
+            return pd.to_datetime(x, errors="coerce", utc=True)
+
+        except:
+            return pd.NaT
+
+    df["timestamp"] = ts.apply(parse_ts)
 
     df = df.dropna(subset=["timestamp"])
 
@@ -145,6 +169,17 @@ def get_history_mesures():
         print("SUPABASE ERROR:", e)
         return pd.DataFrame()
 
+def ensure_df(data):
+    if data is None:
+        return pd.DataFrame()
+    if isinstance(data, pd.DataFrame):
+        return data
+    if isinstance(data, list):
+        return pd.DataFrame(data)
+    if isinstance(data, dict):
+        return pd.DataFrame([data])
+    return pd.DataFrame()
+
 def get_mesures():
     try:
         res = supabase.table("measurements") \
@@ -154,13 +189,13 @@ def get_mesures():
             .execute()
 
         if not res.data:
-            return None
+            return pd.DataFrame()
 
-        return res.data[0]  # dictionnaire direct
+        return pd.DataFrame(res.data)  # ✅ toujours DataFrame
 
     except Exception as e:
         print("SUPABASE ERROR:", e)
-        return None
+        return pd.DataFrame()
    
 
 @app.get("/debug-db")
@@ -198,19 +233,20 @@ def home(request: Request):
 
 @app.get("/api/live")
 def api_live():
-    data = get_mesures()
+    df = get_mesures()
 
-    # sécurité : aucun résultat
-    if not data:
+    if df is None or df.empty:
         return {}
 
+    row = df.iloc[0]
+
     return {
-        "pm25": float(data.get("pm25") or 0),
-        "pm10": float(data.get("pm10") or 0),
-        "co2": float(data.get("co2") or 0),
-        "nox": float(data.get("nox") or 0),
-        "sox": float(data.get("sox") or 0),
-        "nhx": float(data.get("nhx") or 0)
+        "pm25": float(row.get("pm25", 0)),
+        "pm10": float(row.get("pm10", 0)),
+        "co2": float(row.get("co2", 0)),
+        "nox": float(row.get("nox", 0)),
+        "sox": float(row.get("sox", 0)),
+        "nhx": float(row.get("nhx", 0))
     }
 
 @app.get("/test")
@@ -1093,7 +1129,7 @@ def realtime():
     except Exception as e:
         return {"error": str(e)}
 
-    
+
 def pollutant_score(value, limit):
 
     if limit <= 0:
