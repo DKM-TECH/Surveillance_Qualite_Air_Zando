@@ -149,6 +149,16 @@ def get_mesures():
         return pd.DataFrame()
    
 
+@app.get("/debug-db")
+def debug_db():
+    res = supabase.table("measurements").select("*").limit(5).execute()
+
+    return {
+        "raw": res.data,
+        "count": len(res.data or [])
+    }
+
+
 from functools import lru_cache
 import time
 
