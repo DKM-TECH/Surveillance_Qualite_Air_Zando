@@ -170,17 +170,31 @@ async function loadDataset(){
 
     console.log(data);
 
-    tbody.innerHTML = "";
+tbody.innerHTML = "";
 
-    const rows = data.data; // ✅ IMPORTANT
+if (!rows || rows.length === 0) {
+    tbody.innerHTML = "<tr><td colspan='7'>Aucune donnée</td></tr>";
+    return;
+}
 
-    rows.forEach(row => {
-        tbody.innerHTML = "<tr><td colspan='7'>TEST OK</td></tr>";
-        console.log(row);
-        //const tr = document.createElement("tr");
-        //tbody.appendChild(tr);
+rows.slice(0, 50).forEach(row => {
 
-    });
+    console.log(row); // DEBUG
+
+    const tr = document.createElement("tr");
+
+    tr.innerHTML = `
+        <td>${row.timestamp || "N/A"}</td>
+        <td>${row.pm25 ?? row.pm_25 ?? row["pm2.5"] ?? "N/A"}</td>
+        <td>${row.pm10 ?? "N/A"}</td>
+        <td>${row.co2 ?? row.CO2 ?? "N/A"}</td>
+        <td>${row.nox ?? "N/A"}</td>
+        <td>${row.sox ?? "N/A"}</td>
+        <td>${row.nhx ?? "N/A"}</td>
+    `;
+
+    tbody.appendChild(tr);
+});
 }
 </script>
 
