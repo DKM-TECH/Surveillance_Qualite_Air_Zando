@@ -457,12 +457,12 @@ def dataset_api():
     df = get_history_mesures()
 
     if df is None or df.empty:
-        return {
-            "rows": 0,
-            "data": []
-        }
+        return {"rows": 0, "data": []}
 
-    df["timestamp"] = df["timestamp"].astype(str)
+    df["timestamp"] = df["timestamp"].astype(float)
+
+    # 🔥 TRI CROISSANT
+    df = df.sort_values(by="timestamp", ascending=True)
 
     return {
         "rows": len(df),
