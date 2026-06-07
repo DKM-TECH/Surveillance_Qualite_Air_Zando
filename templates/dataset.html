@@ -165,37 +165,46 @@ async function loadDataset(){
 
     const tbody = document.getElementById("dataset-body");
 
+    console.log("tbody =", tbody); // 🔥 doit être un élément
+
     const res = await fetch("/api/dataset");
     const data = await res.json();
 
-    console.log(data);
+    console.log("API DATA:", data);
 
-tbody.innerHTML = "";
+    const rows = data.data;
 
-if (!rows || rows.length === 0) {
-    tbody.innerHTML = "<tr><td colspan='7'>Aucune donnée</td></tr>";
-    return;
+    console.log("ROWS LENGTH:", rows.length);
+
+    tbody.innerHTML = "";
+
+    if (!rows || rows.length === 0) {
+        tbody.innerHTML = "<tr><td colspan='7'>Aucune donnée</td></tr>";
+        return;
+    }
+
+    rows.slice(0, 100).forEach(row => {
+
+        const tr = document.createElement("tr");
+
+        tr.innerHTML = `
+            <td>${row.timestamp}</td>
+            <td>${row.pm25}</td>
+            <td>${row.pm10}</td>
+            <td>${row.co2}</td>
+            <td>${row.nox}</td>
+            <td>${row.sox}</td>
+            <td>${row.nhx}</td>
+        `;
+
+        tbody.appendChild(tr);
+    });
 }
 
-rows.slice(0, 50).forEach(row => {
-
-    console.log(row); // DEBUG
-
-    const tr = document.createElement("tr");
-
-    tr.innerHTML = `
-        <td>${row.timestamp || "N/A"}</td>
-        <td>${row.pm25 ?? row.pm_25 ?? row["pm2.5"] ?? "N/A"}</td>
-        <td>${row.pm10 ?? "N/A"}</td>
-        <td>${row.co2 ?? row.CO2 ?? "N/A"}</td>
-        <td>${row.nox ?? "N/A"}</td>
-        <td>${row.sox ?? "N/A"}</td>
-        <td>${row.nhx ?? "N/A"}</td>
-    `;
-
-    tbody.appendChild(tr);
+document.addEventListener("DOMContentLoaded", () => {
+    loadDataset();
+    setInterval(loadDataset, 5000);
 });
-}
 </script>
 
 </body>
