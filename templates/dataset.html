@@ -172,8 +172,8 @@ async function loadDataset(){
 
     console.log("API DATA:", data);
 
-    const rows = data.data;
-
+    //const rows = data.data;
+    const rows = data.data.sort((a, b) => a.timestamp - b.timestamp);
     console.log("ROWS LENGTH:", rows.length);
 
     tbody.innerHTML = "";
