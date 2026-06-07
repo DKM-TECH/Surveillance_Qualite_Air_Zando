@@ -177,18 +177,8 @@ async function loadDataset(){
     rows.forEach(row => {
         console.log(row);
         const tr = document.createElement("tr");
-
-        tr.innerHTML = `
-            <td>${row.timestamp}</td>
-            <td>${row.pm25}</td>
-            <td>${row.pm10}</td>
-            <td>${row.co2}</td>
-            <td>${row.nox}</td>
-            <td>${row.sox}</td>
-            <td>${row.nhx}</td>
-        `;
-
         tbody.appendChild(tr);
+
     });
 }
 </script>
