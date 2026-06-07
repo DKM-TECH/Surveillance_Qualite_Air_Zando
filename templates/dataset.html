@@ -175,6 +175,7 @@ async function loadDataset(){
     const rows = data.data; // ✅ IMPORTANT
 
     rows.forEach(row => {
+        console.log(row);
         const tr = document.createElement("tr");
 
         tr.innerHTML = `
