@@ -104,25 +104,21 @@ def parse_timestamp(ts):
         return pd.NaT
 
 def get_history_mesures():
-
     try:
-        res = supabase.table("air_history") \
+        res = supabase.table("measurements") \
             .select("*") \
-            .order("timestamp", desc=False) \
+            .limit(1000) \
             .execute()
 
-        if not res.data:
+        data = res.data or []
+
+        if len(data) == 0:
+            print("❌ NO DATA FROM SUPABASE")
             return pd.DataFrame()
 
-        df = pd.DataFrame(res.data)
+        df = pd.DataFrame(data)
 
-        # sécurité types
-        for col in ["pm25","pm10","co2","nox","sox","nhx"]:
-            if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors="coerce")
-
-        df["timestamp"] = pd.to_numeric(df["timestamp"], errors="coerce")
-        df = df.dropna(subset=["timestamp"])
+        print("OK DATA SIZE =", len(df))
 
         return df
 
@@ -133,7 +129,7 @@ def get_history_mesures():
 def get_mesures():
 
     try:
-        res = supabase.table("air_history") \
+        res = supabase.table("measurements") \
             .select("*") \
             .order("timestamp", desc=True) \
             .limit(1) \
@@ -143,6 +139,8 @@ def get_mesures():
             return pd.DataFrame()
 
         data = res.data[0]
+        print("SUPABASE RAW =", res.data[:2])
+        print("ROWS =", len(res.data))
 
         return pd.DataFrame(res.data)
 
