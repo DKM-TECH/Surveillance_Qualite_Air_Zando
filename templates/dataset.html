@@ -1,8 +1,12 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
+<head>
 <meta charset="UTF-8">
+
 <title>Dataset Qualité de l'Air</title>
+
+</head>
 
 <style>
 body{
@@ -29,19 +33,116 @@ th{
 tr:nth-child(even){
     background:#f5f5f5;
 }
+.top-bar{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:20px;
+}
+
+.btn-download{
+    background:#22c55e;
+    color:white;
+    padding:12px 20px;
+    border-radius:10px;
+    text-decoration:none;
+    font-weight:bold;
+}
+
+.btn-download:hover{
+    opacity:0.9;
+}
+
+.stats-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+    gap:15px;
+    margin-bottom:25px;
+}
+
+/* NAV */
+nav {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  background: rgba(17, 24, 39, 0.95);
+  padding: 12px 0;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+nav a {
+  color: #cbd5e1;
+  text-decoration: none;
+  font-weight: 600;
+  padding: 8px 15px;
+  border-radius: 8px;
+  transition: 0.3s;
+}
+
+nav a:hover {
+  background: #38bdf8;
+  color: #0b1220;
+}
+
+
+.card{
+    background:#0f172a;
+    color:white;
+    padding:15px;
+    border-radius:12px;
+    text-align:center;
+}
+
+.card h3{
+    color:#38bdf8;
+    margin-bottom:10px;
+}
+
 </style>
 </head>
-
 <body>
-
 <nav>
-    <a href="/">Accueil</a>
-    <a href="/dataset">Tableau de données</a>
+        <a href="/">Accueil</a>
+        <a href="/gauges">Données réelles</a>
+        <a href="/prediction">Prédiction IA</a>
+        <a href="/apriori">Association IA</a>
+        <a href="/rapport">Rapport analyse</a>
+        <a href="/dataset">Tableau de données</a>
 </nav>
-
 <h1>Dataset Qualité de l'Air</h1>
 
+<p>
+Nombre total d'enregistrements : <b>{{ total }}</b>
+</p>
+<div class="top-bar">
+
+    <a href="/export-dataset" class="btn-download">
+        Télécharger CSV
+    </a>
+
+</div>
+<div class="stats-grid">
+
+    {% for pol, values in stats.items() %}
+
+    <div class="card">
+
+        <h3>{{ pol.upper() }}</h3>
+
+        <p>Min : {{ values.min }}</p>
+        <p>Moy : {{ values.avg }}</p>
+        <p>Max : {{ values.max }}</p>
+
+    </div>
+
+    {% endfor %}
+
+</div>
 <table>
+
 <thead>
 <tr>
     <th>Date</th>
@@ -53,11 +154,9 @@ tr:nth-child(even){
     <th>NHx</th>
 </tr>
 </thead>
-
 <tbody id="dataset-body">
 <!-- rempli dynamiquement -->
 </tbody>
-
 </table>
 
 <script>
@@ -67,7 +166,7 @@ async function loadDataset(){
     const tbody = document.getElementById("dataset-body");
 
     if (!tbody) {
-        console.error("tbody introuvable");
+        console.error("tbody introuvable : vérifie id='dataset-body'");
         return;
     }
 
@@ -95,6 +194,7 @@ async function loadDataset(){
     });
 }
 
+// attendre que le DOM soit prêt
 document.addEventListener("DOMContentLoaded", () => {
     loadDataset();
     setInterval(loadDataset, 5000);
