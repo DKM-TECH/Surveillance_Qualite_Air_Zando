@@ -63,6 +63,25 @@ def clean_df(df):
     df = df.dropna(subset=["timestamp"])
     return df
 
+def clean_timestamp(df):
+    df = df.copy()
+
+    df["timestamp"] = (
+        df["timestamp"]
+        .astype(str)
+        .str.strip()
+        .replace(["Invalid Date", "NaN", "null", "", "None"], pd.NA)
+    )
+
+    df["timestamp"] = pd.to_datetime(
+        df["timestamp"],
+        errors="coerce",
+        utc=True
+    )
+
+    df = df.dropna(subset=["timestamp"])
+    return df
+
 def convert_timestamp(ts):
 
     if ts is None or pd.isnull(ts):
@@ -127,7 +146,7 @@ def get_history_mesures():
         print("SUPABASE ERROR:", e)
         return pd.DataFrame()
 
-def get_last_measure():
+def get_mesures():
     try:
         res = supabase.table("measurements") \
             .select("*") \
@@ -180,23 +199,20 @@ def home(request: Request):
 
 @app.get("/api/live")
 def api_live():
-    df = get_mesures()
+    data = get_mesures()
 
-    if df.empty:
+    # sécurité : aucun résultat
+    if not data:
         return {}
 
-    df = df.sort_values(by="timestamp", ascending=False)
-    row = df.iloc[0]
-
     return {
-        "pm25": float(row.get("pm25", 0)),
-        "pm10": float(row.get("pm10", 0)),
-        "co2": float(row.get("co2", 0)),
-        "nox": float(row.get("nox", 0)),
-        "sox": float(row.get("sox", 0)),
-        "nhx": float(row.get("nhx", 0))
+        "pm25": float(data.get("pm25") or 0),
+        "pm10": float(data.get("pm10") or 0),
+        "co2": float(data.get("co2") or 0),
+        "nox": float(data.get("nox") or 0),
+        "sox": float(data.get("sox") or 0),
+        "nhx": float(data.get("nhx") or 0)
     }
-
 
 @app.get("/test")
 def test():
@@ -305,10 +321,11 @@ def dataset_page(request: Request):
     if not df.empty and "timestamp" in df.columns:
         df["timestamp"] = df["timestamp"].astype(str)
 
-        df = df.sort_values(
-            "timestamp",
-            ascending=False
-        )
+        df = clean_timestamp(df)
+        if not df.empty:
+            df = df.sort_values("timestamp", ascending=False)
+
+      
 
     stats = {}
 
@@ -349,8 +366,11 @@ def dataset_api():
 
     if df is None or df.empty:
         return {"rows": 0, "data": []}
-
+    df = clean_timestamp(df)
     df = df.sort_values("timestamp", ascending=True)
+    if df.empty: 
+        return {"rows": 0, "data": []}
+    
 
     # limite sécurité (IMPORTANT)
     df = df.tail(500)
@@ -415,6 +435,7 @@ def apriori_page(request: Request):
     # =========================
     # TRI + DERNIÈRE MESURE
     # =========================
+    df = clean_timestamp(df)
     df = df.sort_values(by="timestamp", ascending=False)
 
     latest = df.iloc[0]
@@ -656,57 +677,23 @@ def historique():
     df = get_history_mesures()
 
     if df.empty:
-        return {
-            "journalier": [],
-            "mensuel": []
-        }
+        return {"journalier": [], "mensuel": []}
 
-    # Conversion robuste datetime
-   # df["timestamp"] = df["timestamp"].apply(convert_timestamp)
+    df = clean_timestamp(df)
 
-    df["timestamp"] = pd.to_datetime(
-        df["timestamp"],
-        errors="coerce"
-    )
-
-    # Suppression valeurs invalides
-    df = df.dropna(subset=["timestamp"])
-
-    # Vérification sécurité
     if df.empty:
-        return {
-            "journalier": [],
-            "mensuel": []
-        }
+        return {"journalier": [], "mensuel": []}
 
-    # -------------------------
-    # JOURNALIER
-    # -------------------------
+    df["jour"] = df["timestamp"].dt.date.astype(str)
+    df["mois"] = df["timestamp"].dt.to_period("M").astype(str)
 
-    df["jour"] = df["timestamp"].dt.strftime("%Y-%m-%d")
-
-    daily = df.groupby("jour")[
-        ["pm25","pm10","co2","nox","sox","nhx"]
-    ].mean().reset_index()
-
-    # -------------------------
-    # MENSUEL
-    # -------------------------
-
-    df["mois"] = df["timestamp"].dt.strftime("%Y-%m")
-
-    monthly = df.groupby("mois")[
-        ["pm25","pm10","co2","nox","sox","nhx"]
-    ].mean().reset_index()
-    
-    daily = daily.sort_values("jour")
-    monthly = monthly.sort_values("mois")
+    daily = df.groupby("jour")[["pm25","pm10","co2","nox","sox","nhx"]].mean().reset_index()
+    monthly = df.groupby("mois")[["pm25","pm10","co2","nox","sox","nhx"]].mean().reset_index()
 
     return {
         "journalier": daily.to_dict(orient="records"),
         "mensuel": monthly.to_dict(orient="records")
     }
-
 # Page Rapport
 
 from datetime import datetime
@@ -922,7 +909,7 @@ def predict():
         # =========================
         # LOAD DATA
         # =========================
-        df = get_history_mesures().tail(100)
+        df = get_history_mesures()
 
         #df = get_history_mesures()
 
@@ -932,8 +919,7 @@ def predict():
         print("DF SHAPE =", df.shape)
         print(df.columns.tolist())
 
-        df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
-        df = df.dropna(subset=["timestamp"])
+        df = clean_timestamp(df)
         df = df.sort_values("timestamp").tail(100)
 
         cols = [
