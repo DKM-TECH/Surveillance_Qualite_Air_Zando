@@ -106,9 +106,10 @@ def parse_timestamp(ts):
 def get_history_mesures():
     try:
         res = supabase.table("measurements") \
-            .select("*") \
-            .limit(1000) \
-            .execute()
+    .select("*") \
+    .order("timestamp", desc=True) \
+    .limit(1000) \
+    .execute()
 
         data = res.data or []
 
@@ -126,8 +127,7 @@ def get_history_mesures():
         print("SUPABASE ERROR:", e)
         return pd.DataFrame()
 
-def get_mesures():
-
+def get_last_measure():
     try:
         res = supabase.table("measurements") \
             .select("*") \
@@ -136,17 +136,13 @@ def get_mesures():
             .execute()
 
         if not res.data:
-            return pd.DataFrame()
+            return None
 
-        data = res.data[0]
-        print("SUPABASE RAW =", res.data[:2])
-        print("ROWS =", len(res.data))
-
-        return pd.DataFrame(res.data)
+        return res.data[0]  # dictionnaire direct
 
     except Exception as e:
         print("SUPABASE ERROR:", e)
-        return pd.DataFrame()
+        return None
    
 
 @app.get("/debug-db")
@@ -238,7 +234,7 @@ def gauges(request: Request):
 
         try:
 
-            df["timestamp"] = df["timestamp"].apply(convert_timestamp)
+            #df["timestamp"] = df["timestamp"].apply(convert_timestamp)
             df = df.sort_values(by="timestamp", ascending=False)
             row = df.iloc[0]
 
@@ -666,7 +662,7 @@ def historique():
         }
 
     # Conversion robuste datetime
-    df["timestamp"] = df["timestamp"].apply(convert_timestamp)
+   # df["timestamp"] = df["timestamp"].apply(convert_timestamp)
 
     df["timestamp"] = pd.to_datetime(
         df["timestamp"],
@@ -928,19 +924,17 @@ def predict():
         # =========================
         df = get_history_mesures().tail(100)
 
-        if df is None or df.empty:
-            return {
-                "error": "no_data"
-            }
+        #df = get_history_mesures()
 
+        if df is None or df.empty:
+            return {"error": "no_data"}
+        
         print("DF SHAPE =", df.shape)
         print(df.columns.tolist())
 
-        # =========================
-        # CLEAN DATA
-        # =========================
-        df["timestamp"] = df["timestamp"].apply(convert_timestamp)
-        df = df.sort_values("timestamp")
+        df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
+        df = df.dropna(subset=["timestamp"])
+        df = df.sort_values("timestamp").tail(100)
 
         cols = [
             "pm25", "pm10", "co2", "nox", "sox", "nhx"
