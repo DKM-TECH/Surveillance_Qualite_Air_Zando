@@ -165,11 +165,6 @@ async function loadDataset(){
 
     const tbody = document.getElementById("dataset-body");
 
-    if (!tbody) {
-        console.error("tbody introuvable : vérifie id='dataset-body'");
-        return;
-    }
-
     const res = await fetch("/api/dataset");
     const data = await res.json();
 
@@ -177,7 +172,9 @@ async function loadDataset(){
 
     tbody.innerHTML = "";
 
-    data.rows.forEach(row => {
+    const rows = data.data; // ✅ IMPORTANT
+
+    rows.forEach(row => {
         const tr = document.createElement("tr");
 
         tr.innerHTML = `
@@ -193,13 +190,6 @@ async function loadDataset(){
         tbody.appendChild(tr);
     });
 }
-
-// attendre que le DOM soit prêt
-document.addEventListener("DOMContentLoaded", () => {
-    loadDataset();
-    setInterval(loadDataset, 5000);
-});
-
 </script>
 
 </body>
