@@ -68,8 +68,6 @@ def clean_timestamp(df):
 
     df["timestamp"] = (
         df["timestamp"]
-        .astype(str)
-        .str.strip()
         .replace(["Invalid Date", "NaN", "null", "", "None"], pd.NA)
     )
 
@@ -80,6 +78,7 @@ def clean_timestamp(df):
     )
 
     df = df.dropna(subset=["timestamp"])
+
     return df
 
 def convert_timestamp(ts):
@@ -223,7 +222,7 @@ def test():
 @app.get("/gauges", response_class=HTMLResponse)
 def gauges(request: Request):
 
-    df = get_mesures()
+    row = get_mesures()
 
     mesures = {
         "PM2.5": 0,
@@ -246,60 +245,52 @@ def gauges(request: Request):
     etat = "AIR INCONNU"
     message = "Pas de données"
 
-    if df is not None and not df.empty and "timestamp" in df.columns:
-
-        try:
-
-            #df["timestamp"] = df["timestamp"].apply(convert_timestamp)
-            df = df.sort_values(by="timestamp", ascending=False)
-            row = df.iloc[0]
-
-            correspondance = {
-                "PM2.5": "pm25",
-                "PM10": "pm10",
-                "CO2": "co2",
-                "NOx": "nox",
-                "SOx": "sox",
-                "NHx": "nhx"
+    # ✅ correction ici
+    if not row:
+        return templates.TemplateResponse(
+            "gauges.html",
+            {
+                "request": request,
+                "mesures": mesures,
+                "seuils": seuils,
+                "etat": etat,
+                "message": message
             }
+        )
 
-            for affichage, colonne in correspondance.items():
+    try:
+        correspondance = {
+            "PM2.5": "pm25",
+            "PM10": "pm10",
+            "CO2": "co2",
+            "NOx": "nox",
+            "SOx": "sox",
+            "NHx": "nhx"
+        }
 
-                if colonne in row:
-                    mesures[affichage] = float(
-                        row.get(colonne, 0)
-                    )
+        for affichage, colonne in correspondance.items():
+            mesures[affichage] = float(row.get(colonne, 0) or 0)
 
-            depassements = [
+        depassements = [
+            pol for pol in mesures
+            if mesures[pol] > seuils[pol]
+        ]
 
-                pol for pol in mesures
+        if len(depassements) >= 3:
+            etat = "DANGEREUX"
+            message = "⚠️ Pollution critique"
+        elif len(depassements) > 0:
+            etat = "AIR POLLUÉ"
+            message = "Air dégradé"
+        else:
+            etat = "AIR SAIN"
+            message = "Qualité normale"
 
-                if mesures[pol] > seuils[pol]
-            ]
-
-            if len(depassements) >= 3:
-
-                etat = "DANGEREUX"
-                message = "⚠️ Pollution critique"
-
-            elif len(depassements) > 0:
-
-                etat = "AIR POLLUÉ"
-                message = "Air dégradé"
-
-            else:
-
-                etat = "AIR SAIN"
-                message = "Qualité normale"
-
-        except Exception as e:
-
-            print("GAUGES ERROR:", e)
+    except Exception as e:
+        print("GAUGES ERROR:", e)
 
     return templates.TemplateResponse(
-
         "gauges.html",
-
         {
             "request": request,
             "mesures": mesures,
@@ -318,30 +309,16 @@ def dataset_page(request: Request):
     if df is None:
         df = pd.DataFrame()
 
-    if not df.empty and "timestamp" in df.columns:
-        df["timestamp"] = df["timestamp"].astype(str)
-
+    if not df.empty:
         df = clean_timestamp(df)
-        if not df.empty:
-            df = df.sort_values("timestamp", ascending=False)
-
-      
+        df = df.sort_values("timestamp", ascending=False)
 
     stats = {}
 
-    pollutants = [
-        "pm25",
-        "pm10",
-        "co2",
-        "nox",
-        "sox",
-        "nhx"
-    ]
+    pollutants = ["pm25","pm10","co2","nox","sox","nhx"]
 
     for col in pollutants:
-
         if col in df.columns:
-
             stats[col] = {
                 "min": round(float(df[col].min()), 2),
                 "max": round(float(df[col].max()), 2),
@@ -349,7 +326,6 @@ def dataset_page(request: Request):
             }
 
     return templates.TemplateResponse(
-        
         "dataset.html",
         {
             "request": request,
