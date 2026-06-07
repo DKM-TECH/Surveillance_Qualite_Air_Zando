@@ -4,12 +4,14 @@ import networkx as nx
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import firebase_admin
+#import firebase_admin
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
+from supabase import create_client
+import os
 
 from mlxtend.frequent_patterns import apriori, association_rules
 
@@ -43,6 +45,10 @@ SEUILS = {
 
 # -------------------------
 # Firebase Configuration
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def get_env(key):
     value = os.getenv(key)
@@ -50,30 +56,45 @@ def get_env(key):
         raise Exception(f"❌ Variable manquante: {key}")
     return value
 
-firebase_config = {
-    "type": get_env("FIREBASE_TYPE"),
-    "project_id": get_env("FIREBASE_PROJECT_ID"),
-    "private_key_id": get_env("FIREBASE_PRIVATE_KEY_ID"),
-    "private_key": get_env("FIREBASE_PRIVATE_KEY").replace("\\n", "\n"),
-    "client_email": get_env("FIREBASE_CLIENT_EMAIL"),
-    "client_id": get_env("FIREBASE_CLIENT_ID"),
-    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-    "token_uri": "https://oauth2.googleapis.com/token",
-    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-    "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/" + get_env("FIREBASE_CLIENT_EMAIL")
-}
+from collections import defaultdict
 
-from firebase_admin import credentials, initialize_app, db
+def clean_df(df):
+    df["timestamp"] = pd.to_numeric(df["timestamp"], errors="coerce")
+    df = df.dropna(subset=["timestamp"])
+    return df
 
-cred = credentials.Certificate(firebase_config)
+def convert_timestamp(ts):
 
-if not firebase_admin._apps:
-    initialize_app(
-        cred,
-        {
-            "databaseURL": get_env("FIREBASE_DATABASE_URL")
-        }
-    )
+    if ts is None or pd.isnull(ts):
+        return pd.NaT
+
+    try:
+        # si déjà numérique (int/float)
+        if isinstance(ts, (int, float)):
+            ts = int(ts)
+
+            # heuristique ms vs s
+            if ts > 10**12:
+                return pd.to_datetime(ts, unit="ms")
+            else:
+                return pd.to_datetime(ts, unit="s")
+
+        ts = str(ts).strip()
+
+        # string numérique
+        if ts.isdigit():
+            ts_int = int(ts)
+
+            if len(ts) >= 13:
+                return pd.to_datetime(ts_int, unit="ms")
+            else:
+                return pd.to_datetime(ts_int, unit="s")
+
+        # fallback texte
+        return pd.to_datetime(ts, errors="coerce")
+
+    except Exception:
+        return pd.NaT
 
 def parse_timestamp(ts):
     try:
@@ -81,135 +102,69 @@ def parse_timestamp(ts):
         return pd.to_datetime(ts, unit="s")
     except:
         return pd.NaT
-    
-def get_mesures():
-    try:
-        ref = db.reference("air/latest")
-        data = ref.get()
-
-        if not data:
-            return pd.DataFrame()
-
-        # sécurité mapping
-        return pd.DataFrame([{
-            "pm25": data.get("pm25", 0),
-            "pm10": data.get("pm10", 0),
-            "co2": data.get("co2", 0),
-            "nox": data.get("nox", 0),
-            "sox": data.get("sox", 0),
-            "nhx": data.get("nhx", 0),
-            "timestamp": parse_timestamp(data.get("timestamp", 0))
-        }])
-
-    except Exception as e:
-        print("RTDB ERROR:", e)
-        return pd.DataFrame()
 
 def get_history_mesures():
 
     try:
+        res = supabase.table("air_history") \
+            .select("*") \
+            .order("timestamp", desc=False) \
+            .execute()
 
-        ref = db.reference("air/history")
-
-        data = ref.get()
-
-        if not data:
+        if not res.data:
             return pd.DataFrame()
 
-        rows = []
+        df = pd.DataFrame(res.data)
 
-        for key, value in data.items():
+        # sécurité types
+        for col in ["pm25","pm10","co2","nox","sox","nhx"]:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors="coerce")
 
-            rows.append({
-
-                "pm25": float(value.get("pm25", 0)),
-                "pm10": float(value.get("pm10", 0)),
-                "co2": float(value.get("co2", 0)),
-                "nox": float(value.get("nox", 0)),
-                "sox": float(value.get("sox", 0)),
-                "nhx": float(value.get("nhx", 0)),
-                "timestamp": float(value.get("timestamp", 0))
-
-            })
-
-        df = pd.DataFrame(rows)
+        df["timestamp"] = pd.to_numeric(df["timestamp"], errors="coerce")
+        df = df.dropna(subset=["timestamp"])
 
         return df
 
     except Exception as e:
-
-        print("HISTORY ERROR:", e)
-
+        print("SUPABASE ERROR:", e)
         return pd.DataFrame()
-    
-#def get_mesures():
 
-#    docs = db.collection("mesures").stream()
+def get_mesures():
 
- #   data = []
+    try:
+        res = supabase.table("air_history") \
+            .select("*") \
+            .order("timestamp", desc=True) \
+            .limit(1) \
+            .execute()
 
-  #  for doc in docs:
+        if not res.data:
+            return pd.DataFrame()
 
-   #     d = doc.to_dict()
+        data = res.data[0]
 
-        # Sécurisation champs
-    #    for col in [
-     #       "pm25",
-      #      "pm10",
-       #     "co2",
-        #    "nox",
-         #   "sox",
-        #    "nhx",
-        #    "lat",
-        #    "lon"
-        #]:
-        #    try:
-        #        d[col] = float(d.get(col, 0) or 0)
-        #    except:
-        #        d[col] = 0
+        return pd.DataFrame(res.data)
 
-        #d["timestamp"] = str(d.get("timestamp", ""))
+    except Exception as e:
+        print("SUPABASE ERROR:", e)
+        return pd.DataFrame()
+   
 
-       # data.append(d)
+from functools import lru_cache
+import time
 
-    #if not data:
-     #   return pd.DataFrame()
+CACHE = {"data": None, "ts": 0}
 
-    # =========================
-    # DATAFRAME
-    # =========================
+def get_history_cached(ttl=10):
+    global CACHE
+    if time.time() - CACHE["ts"] < ttl:
+        return CACHE["data"]
 
-    #df = pd.DataFrame(data)
-
-    # =========================
-    # TARGETS ML FUTURS
-    # =========================
-
-    #for pol in [
-     #   "pm25",
-      #  "pm10",
-       # "co2",
-        #"nox",
-   #     "sox",
-    #    "nhx"
-    #]:
-    #    df[f"{pol}_future"] = df[pol].shift(-1)
-
-    # suppression NAN
-    #df = df.dropna()
-
-    # =========================
-    # EXPORT CSV
-    # =========================
-
-    #df.to_csv(
-    #    "dataset.csv",
-    #    index=False
-    #)
-
-    #print("DATASET GENERE")
-
-    #return df
+    data = get_history_mesures()
+    CACHE["data"] = data
+    CACHE["ts"] = time.time()
+    return data
 
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
@@ -218,21 +173,6 @@ def home(request: Request):
     "home.html",
     {"request": request}
 )
-#@app.get("/firestore")
-#def firestore_test():
-
- #   docs = db.collection("mesures").stream()
-
-  #  data = []
-
-   # for doc in docs:
-    #    data.append(doc.to_dict())
-
-    #return data
-
-from fastapi.responses import JSONResponse
-#ROUTE API/LIVE
-#from fastapi.responses import JSONResponse
 
 @app.get("/api/live")
 def api_live():
@@ -253,60 +193,6 @@ def api_live():
         "nhx": float(row.get("nhx", 0))
     }
 
-#WEB STOCK
-
-from fastapi import WebSocket, WebSocketDisconnect
-import asyncio
-import json
-
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections = []
-
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections.append(websocket)
-
-    def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
-
-    async def send_json(self, data: dict):
-        for connection in self.active_connections:
-            await connection.send_text(json.dumps(data))
-
-
-manager = ConnectionManager()
-
-@app.websocket("/ws/live")
-async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
-
-    try:
-        while True:
-            try:
-                df = get_mesures()
-
-                if not df.empty:
-                    row = df.iloc[0]
-
-                    data = {
-                        "pm25": float(row.get("pm25", 0)),
-                        "pm10": float(row.get("pm10", 0)),
-                        "co2": float(row.get("co2", 0)),
-                        "nox": float(row.get("nox", 0)),
-                        "sox": float(row.get("sox", 0)),
-                        "nhx": float(row.get("nhx", 0)),
-                    }
-
-                    await websocket.send_json(data)
-
-            except Exception as e:
-                print("WS LOOP ERROR:", e)
-
-            await asyncio.sleep(3)
-
-    except WebSocketDisconnect:
-        print("Client déconnecté")
 
 @app.get("/test")
 def test():
@@ -345,6 +231,7 @@ def gauges(request: Request):
         try:
 
             df["timestamp"] = df["timestamp"].apply(convert_timestamp)
+            df = df.sort_values(by="timestamp", ascending=False)
             row = df.iloc[0]
 
             correspondance = {
@@ -459,18 +346,20 @@ def dataset_api():
     if df is None or df.empty:
         return {"rows": 0, "data": []}
 
-    df["timestamp"] = df["timestamp"].astype(float)
+    df = df.sort_values("timestamp", ascending=True)
 
-    # 🔥 TRI CROISSANT
-    df = df.sort_values(by="timestamp", ascending=True)
+    # limite sécurité (IMPORTANT)
+    df = df.tail(500)
 
     return {
         "rows": len(df),
         "data": df.to_dict(orient="records")
     }
-#from fastapi.responses import FileResponse
 
-#from fastapi.responses import FileResponse
+from functools import lru_cache
+@lru_cache(maxsize=1)
+def cached_data():
+    return get_history_mesures()
 
 @app.get("/export-dataset")
 def export_dataset():
@@ -756,41 +645,7 @@ def plot_apriori_network(rules):
     #plt.savefig("static/apriori_network.png")
     plt.close()
 
-from collections import defaultdict
-
-def convert_timestamp(ts):
-
-    if ts is None or pd.isnull(ts):
-        return pd.NaT
-
-    try:
-        # si déjà numérique (int/float)
-        if isinstance(ts, (int, float)):
-            ts = int(ts)
-
-            # heuristique ms vs s
-            if ts > 10**12:
-                return pd.to_datetime(ts, unit="ms")
-            else:
-                return pd.to_datetime(ts, unit="s")
-
-        ts = str(ts).strip()
-
-        # string numérique
-        if ts.isdigit():
-            ts_int = int(ts)
-
-            if len(ts) >= 13:
-                return pd.to_datetime(ts_int, unit="ms")
-            else:
-                return pd.to_datetime(ts_int, unit="s")
-
-        # fallback texte
-        return pd.to_datetime(ts, errors="coerce")
-
-    except Exception:
-        return pd.NaT
-    
+ 
 @app.get("/api/historique")
 def historique():
 
