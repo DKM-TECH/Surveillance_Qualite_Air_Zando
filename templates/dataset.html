@@ -175,9 +175,10 @@ async function loadDataset(){
     const rows = data.data; // ✅ IMPORTANT
 
     rows.forEach(row => {
+        tbody.innerHTML = "<tr><td colspan='7'>TEST OK</td></tr>";
         console.log(row);
-        const tr = document.createElement("tr");
-        tbody.appendChild(tr);
+        //const tr = document.createElement("tr");
+        //tbody.appendChild(tr);
 
     });
 }
