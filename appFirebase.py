@@ -401,6 +401,92 @@ def gauges(request: Request):
             "message": message
         }
     )
+#VOIR LES DONNEES DATASET (DONNEES BRUTES)
+
+@app.get("/dataset", response_class=HTMLResponse)
+def dataset_page(request: Request):
+
+    df = get_history_mesures()
+
+    if df is None:
+        df = pd.DataFrame()
+
+    if not df.empty and "timestamp" in df.columns:
+        df["timestamp"] = df["timestamp"].astype(str)
+
+        df = df.sort_values(
+            "timestamp",
+            ascending=False
+        )
+
+    stats = {}
+
+    pollutants = [
+        "pm25",
+        "pm10",
+        "co2",
+        "nox",
+        "sox",
+        "nhx"
+    ]
+
+    for col in pollutants:
+
+        if col in df.columns:
+
+            stats[col] = {
+                "min": round(float(df[col].min()), 2),
+                "max": round(float(df[col].max()), 2),
+                "avg": round(float(df[col].mean()), 2)
+            }
+
+    return templates.TemplateResponse(
+        
+        "dataset.html",
+        {
+            "request": request,
+            "rows": df.to_dict("records"),
+            "total": len(df),
+            "stats": stats
+        }
+    )
+
+@app.get("/api/dataset")
+def dataset_api():
+
+    df = get_history_mesures()
+
+    if df is None or df.empty:
+        return {
+            "rows": 0,
+            "data": []
+        }
+
+    df["timestamp"] = df["timestamp"].astype(str)
+
+    return {
+        "rows": len(df),
+        "data": df.to_dict(orient="records")
+    }
+#from fastapi.responses import FileResponse
+
+#from fastapi.responses import FileResponse
+
+@app.get("/export-dataset")
+def export_dataset():
+
+    df = get_history_mesures()
+
+    filename = "dataset_air.csv"
+
+    df.to_csv(filename, index=False)
+
+    return FileResponse(
+        path=filename,
+        filename=filename,
+        media_type="text/csv"
+    )
+
 ## --------------------
 # Page Apriori
 # --------------------
