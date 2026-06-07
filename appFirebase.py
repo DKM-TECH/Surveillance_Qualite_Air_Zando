@@ -308,15 +308,21 @@ def dataset_page(request: Request):
 
     if df is None or df.empty:
         df = pd.DataFrame()
-
     else:
         df = clean_timestamp(df)
-        df = df.dropna(subset=["timestamp"])   # 🔥 IMPORTANT
+
+        # 🔥 sécurité : supprimer NaT
+        df = df.dropna(subset=["timestamp"])
+
+        # tri
         df = df.sort_values("timestamp", ascending=False)
+
+        # 🔥 conversion SAFE pour frontend
+        df["timestamp"] = df["timestamp"].dt.strftime("%Y-%m-%d %H:%M:%S")
 
     stats = {}
 
-    pollutants = ["pm25","pm10","co2","nox","sox","nhx"]
+    pollutants = ["pm25", "pm10", "co2", "nox", "sox", "nhx"]
 
     for col in pollutants:
         if col in df.columns:
@@ -325,9 +331,6 @@ def dataset_page(request: Request):
                 "max": round(float(df[col].max()), 2),
                 "avg": round(float(df[col].mean()), 2)
             }
-
-    # 🔥 IMPORTANT : convertir timestamp en string propre
-    df["timestamp"] = df["timestamp"].astype(str)
 
     return templates.TemplateResponse(
         "dataset.html",
