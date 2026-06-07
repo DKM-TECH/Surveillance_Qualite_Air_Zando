@@ -389,17 +389,11 @@ def apriori_page(request: Request):
 
     df = get_history_mesures()
 
-    # =========================
-    # INIT VARIABLES
-    # =========================
     dernieres_mesures = {k: 0.0 for k in SEUILS}
     polluant = None
     table_dataset = []
     rules_html = []
 
-    # =========================
-    # VALIDATION DATAFRAME
-    # =========================
     if df is None or df.empty:
         return templates.TemplateResponse(
             "apriori.html",
@@ -413,10 +407,23 @@ def apriori_page(request: Request):
             }
         )
 
-    # =========================
-    # TRI + DERNIÈRE MESURE
-    # =========================
+    # CLEAN SAFE
     df = clean_timestamp(df)
+    df = df.dropna(subset=["timestamp"])
+
+    if df.empty:
+        return templates.TemplateResponse(
+            "apriori.html",
+            {
+                "request": request,
+                "dataset": [],
+                "rules": [],
+                "polluant_influent": None,
+                "dernieres_mesures": dernieres_mesures,
+                "seuils": SEUILS
+            }
+        )
+
     df = df.sort_values(by="timestamp", ascending=False)
 
     latest = df.iloc[0]
@@ -427,9 +434,6 @@ def apriori_page(request: Request):
         except:
             dernieres_mesures[k] = 0.0
 
-    # =========================
-    # PRÉPARATION APRIORI
-    # =========================
     if len(df) < 5:
         return templates.TemplateResponse(
             "apriori.html",
@@ -443,42 +447,42 @@ def apriori_page(request: Request):
             }
         )
 
-    # =========================
-    # EXTRACTION POLLUANTS
-    # =========================
-    cols = list(SEUILS.keys())
+    cols = [c for c in SEUILS.keys() if c in df.columns]
     df_polluants = df[cols].fillna(0)
 
-    # =========================
-    # BINARISATION
-    # =========================
     df_bin = pd.DataFrame()
 
     for col, seuil in SEUILS.items():
+        if col not in df_polluants.columns:
+            continue
 
         df_bin[f"{col}_ELEVE"] = (df_polluants[col] > seuil)
         df_bin[f"{col}_TRES_ELEVE"] = (df_polluants[col] > seuil * 1.5)
 
     df_bin = df_bin.astype(int)
 
-    # suppression colonnes vides
-    df_bin = df_bin.loc[:, df_bin.sum(axis=0) > 0]
+    if df_bin.shape[1] == 0:
+        return templates.TemplateResponse(
+            "apriori.html",
+            {
+                "request": request,
+                "dataset": [],
+                "rules": [],
+                "polluant_influent": None,
+                "dernieres_mesures": dernieres_mesures,
+                "seuils": SEUILS
+            }
+        )
 
-    # dataset pour frontend
+    df_bin = df_bin.loc[:, df_bin.sum(axis=0) > 0]
     table_dataset = df_bin.to_dict(orient="records")[:50]
 
-    print("DF BIN SHAPE:", df_bin.shape)
-
-    # =========================
-    # APRIORI
-    # =========================
     try:
-
         if not df_bin.empty:
 
             frequent_itemsets = apriori(
                 df_bin,
-                min_support=0.3,
+                min_support=0.2,
                 use_colnames=True,
                 max_len=3
             )
@@ -495,30 +499,16 @@ def apriori_page(request: Request):
 
                     plot_apriori_network(rules)
 
-                    # conversion sets -> list
                     rules["antecedents"] = rules["antecedents"].apply(list)
                     rules["consequents"] = rules["consequents"].apply(list)
 
-                    # arrondir valeurs
-                    for col in ["support", "confidence", "lift", "leverage", "conviction"]:
+                    for col in ["support","confidence","lift","conviction"]:
                         rules[col] = rules[col].round(3)
 
-                    # tri
                     rules = rules.sort_values(by="lift", ascending=False).head(50)
 
-                    metrics_cols = [
-                        "antecedents",
-                        "consequents",
-                        "support",
-                        "confidence",
-                        "lift",
-                        "leverage",
-                        "conviction"
-                    ]
+                    rules_html = rules.to_dict(orient="records")
 
-                    rules_html = rules[metrics_cols].to_dict(orient="records")
-
-                    # polluant dominant
                     counts = rules["antecedents"].explode().value_counts()
                     if not counts.empty:
                         polluant = counts.idxmax()
@@ -526,15 +516,6 @@ def apriori_page(request: Request):
     except Exception as e:
         print("Apriori error:", e)
 
-    # =========================
-    # DEBUG FINAL
-    # =========================
-    print("Dataset size =", len(table_dataset))
-    print("Rules size =", len(rules_html))
-
-    # =========================
-    # TEMPLATE
-    # =========================
     return templates.TemplateResponse(
         "apriori.html",
         {
