@@ -183,22 +183,25 @@ async function loadDataset(){
         return;
     }
 
-    rows.slice(0, 100).forEach(row => {
+    rows.forEach(row => {
 
-        const tr = document.createElement("tr");
+    const date = new Date(row.timestamp * 1000);
 
-        tr.innerHTML = `
-            <td>${row.timestamp}</td>
-            <td>${row.pm25}</td>
-            <td>${row.pm10}</td>
-            <td>${row.co2}</td>
-            <td>${row.nox}</td>
-            <td>${row.sox}</td>
-            <td>${row.nhx}</td>
-        `;
+    const tr = document.createElement("tr");
 
-        tbody.appendChild(tr);
-    });
+    tr.innerHTML = `
+        <td>${date.toLocaleString()}</td>
+        <td>${row.pm25}</td>
+        <td>${row.pm10}</td>
+        <td>${row.co2}</td>
+        <td>${row.nox}</td>
+        <td>${row.sox}</td>
+        <td>${row.nhx}</td>
+    `;
+
+    tbody.appendChild(tr);
+});
+
 }
 
 document.addEventListener("DOMContentLoaded", () => {
