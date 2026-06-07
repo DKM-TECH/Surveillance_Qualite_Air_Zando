@@ -721,105 +721,177 @@ def aqi_category(aqi):
 
 @app.get("/rapport", response_class=HTMLResponse)
 def rapport(request: Request):
+
     df = get_mesures()
 
-    if not df.empty:
-        df = df.sort_values(by="timestamp", ascending=False).head(10).reset_index(drop=True)
+    # =========================
+    # VALIDATION SAFE
+    # =========================
+    if df is None or df.empty:
+        return templates.TemplateResponse(
+            "rapport.html",
+            {
+                "request": request,
+                "mesures": {},
+                "depassements": {},
+                "status": "Aucune donnée",
+                "position": None,
+                "history": {},
+                "aqi_global": 0,
+                "aqi_label": "N/A",
+                "aqi_color": "#999999",
+                "polluant_dominant": None,
+                "aqi_parts": {}
+            }
+        )
+
+    # =========================
+    # CLEAN DATA
+    # =========================
+    df = clean_timestamp(df)
 
     if df.empty:
         return templates.TemplateResponse(
-        "rapport.html",
-        {
-            "request": request,
-            "mesures": {},
-            "depassements": {},
-            "status": "Aucune donnée",
-            "position": None,
-            "history": {},
-            "aqi_global": 0,
-            "aqi_label": "N/A",
-            "aqi_color": "#999999",
-            "polluant_dominant": None,
-            "aqi_parts": {}
-        }
-    )
+            "rapport.html",
+            {
+                "request": request,
+                "mesures": {},
+                "depassements": {},
+                "status": "Aucune donnée",
+                "position": None,
+                "history": {},
+                "aqi_global": 0,
+                "aqi_label": "N/A",
+                "aqi_color": "#999999",
+                "polluant_dominant": None,
+                "aqi_parts": {}
+            }
+        )
+
+    # =========================
+    # TRI + LIMIT
+    # =========================
+    df = df.sort_values(by="timestamp", ascending=False).head(10).reset_index(drop=True)
 
     last_row = df.iloc[0]
-    mesures = last_row[["pm25","pm10","co2","nox","sox","nhx"]].to_dict()
-    history = {
-    pol: df[pol].fillna(0).tolist()[::-1]
-    for pol in ["pm25","pm10","co2","nox","sox","nhx"]
-    if pol in df.columns
+
+    # =========================
+    # MESURES SAFE
+    # =========================
+    cols = ["pm25", "pm10", "co2", "nox", "sox", "nhx"]
+
+    mesures = {
+        c: float(last_row[c]) if c in last_row and pd.notnull(last_row[c]) else 0.0
+        for c in cols
     }
-    # --- Dépassements ---
-    depassements = {k:v for k,v in mesures.items() if k in SEUILS and v>SEUILS[k]}
+
+    # =========================
+    # HISTORY SAFE
+    # =========================
+    history = {
+        pol: df[pol].fillna(0).tolist()[::-1]
+        for pol in cols
+        if pol in df.columns
+    }
+
+    # =========================
+    # DÉPASSEMENTS
+    # =========================
+    depassements = {
+        k: v for k, v in mesures.items()
+        if k in SEUILS and v > SEUILS[k]
+    }
+
     status = "AIR POLUÉ" if depassements else "AIR SAIN"
 
-    # --- Position ---
+    # =========================
+    # POSITION SAFE
+    # =========================
     position = None
     if "lat" in last_row and "lon" in last_row:
         if pd.notnull(last_row["lat"]) and pd.notnull(last_row["lon"]):
             position = {
-            "lat": float(last_row["lat"]),
-            "lon": float(last_row["lon"])
-        }
-   # if pd.notnull(last_row["lat"]) and pd.notnull(last_row["lon"]):
-    #    position = {"lat": float(last_row["lat"]), "lon": float(last_row["lon"])}
+                "lat": float(last_row["lat"]),
+                "lon": float(last_row["lon"])
+            }
 
-    # --- AQI multi-polluants ---
+    # =========================
+    # AQI SAFE
+    # =========================
     aqi_parts = {}
+
     for pol, bpts in AQI_BREAKPOINTS.items():
-        db_key = POLLUTANT_DB_MAP[pol]
+        db_key = POLLUTANT_DB_MAP.get(pol)
+
         if db_key in mesures:
             val = mesures.get(db_key)
+
             if val is not None:
                 aqi_val = compute_aqi_generic(float(val), bpts)
+
                 if aqi_val is not None:
                     aqi_parts[pol] = aqi_val
 
-     
     if aqi_parts:
         aqi_global = max(aqi_parts.values())
         polluant_dominant = max(aqi_parts, key=aqi_parts.get)
         aqi_label, aqi_color = aqi_category(aqi_global)
     else:
-        aqi_global = None
+        aqi_global = 0
         polluant_dominant = None
         aqi_label, aqi_color = "N/A", "#999999"
 
+    # =========================
+    # RESPONSE
+    # =========================
     return templates.TemplateResponse(
-    "rapport.html",
-    {
-        "request": request,
-        "mesures": mesures,
-        "depassements": depassements,
-        "status": status,
-        "position": position,
-        "history": history,
-        "aqi_global": aqi_global,
-        "aqi_label": aqi_label,
-        "aqi_color": aqi_color,
-        "polluant_dominant": polluant_dominant,
-        "aqi_parts": aqi_parts
-    }
- )
+        "rapport.html",
+        {
+            "request": request,
+            "mesures": mesures,
+            "depassements": depassements,
+            "status": status,
+            "position": position,
+            "history": history,
+            "aqi_global": aqi_global,
+            "aqi_label": aqi_label,
+            "aqi_color": aqi_color,
+            "polluant_dominant": polluant_dominant,
+            "aqi_parts": aqi_parts
+        }
+    )
+
 @app.get("/api/dernieres_mesures")
 def dernieres_mesures():
 
     df = get_mesures()
 
+    # =========================
+    # SAFE CHECK
+    # =========================
+    if df is None or df.empty:
+        return {}
+
+    # =========================
+    # CLEAN TIMESTAMP (important)
+    # =========================
+    df = clean_timestamp(df)
+
     if df.empty:
         return {}
 
-    df = df.sort_values(
-        by="timestamp",
-        ascending=False
-    )
+    # =========================
+    # TRI
+    # =========================
+    df = df.sort_values(by="timestamp", ascending=False)
 
     row = df.iloc[0]
 
+    # =========================
+    # SAFE EXTRACTION
+    # =========================
     return {
-        k: float(row.get(k, 0))
+        k: float(row[k]) if k in row and pd.notnull(row[k]) else 0.0
         for k in SEUILS
     }
 
@@ -853,7 +925,6 @@ def predict():
     print("PREDICT CALLED")
 
     try:
-        print("===== PREDICT START =====")
 
         # =========================
         # LOAD MODEL
@@ -862,43 +933,40 @@ def predict():
             try:
                 model = joblib.load("air_xgb_model.pkl")
                 print("✅ Modèle chargé OK")
-                print("TYPE =", type(model))
             except Exception as e:
                 return {
                     "error": "model_load_failed",
                     "message": str(e)
                 }
 
-        print("MODEL OK")
-
         # =========================
         # LOAD DATA
         # =========================
         df = get_history_mesures()
 
-        #df = get_history_mesures()
-
         if df is None or df.empty:
             return {"error": "no_data"}
-        
-        print("DF SHAPE =", df.shape)
-        print(df.columns.tolist())
 
         df = clean_timestamp(df)
-        df = df.sort_values("timestamp").tail(100)
 
-        cols = [
-            "pm25", "pm10", "co2", "nox", "sox", "nhx"
-        ]
+        if df.empty:
+            return {"error": "no_valid_timestamp"}
 
-        # garder seulement colonnes existantes
-        cols = [c for c in cols if c in df.columns]
+        # =========================
+        # FEATURES FIXES (CRUCIAL)
+        # =========================
+        cols = ["pm25", "pm10", "co2", "nox", "sox", "nhx"]
 
-        # convertir en numérique
+        # forcer présence colonnes
         for c in cols:
-            df[c] = pd.to_numeric(df[c], errors="coerce")
+            if c not in df.columns:
+                df[c] = 0.0
 
-        df = df.dropna(subset=cols)
+        # conversion numérique SAFE
+        df[cols] = df[cols].apply(pd.to_numeric, errors="coerce").fillna(0)
+
+        # tri temporel
+        df = df.sort_values("timestamp")
 
         WINDOW = 10
 
@@ -909,16 +977,16 @@ def predict():
             }
 
         # =========================
-        # BUILD INPUT
+        # INPUT FIXE (stable ML)
         # =========================
+        X_seq = df[cols].tail(WINDOW).values  # shape (10, 6)
 
-        X = df[cols].tail(WINDOW).values
-        X = X.reshape(1, -1)
+        X = X_seq.reshape(1, WINDOW * len(cols))  # shape (1, 60)
 
         print("X SHAPE =", X.shape)
 
         # =========================
-        # PREDICT
+        # PREDICTION
         # =========================
         pred = model.predict(X)[0]
 
@@ -961,30 +1029,59 @@ def predict():
             "error": "runtime_error",
             "message": str(e)
         }
-
-            
+                
 @app.get("/api/realtime")
 def realtime():
 
     try:
         print("CALLED REALTIME")
-        df = get_history_mesures().tail(100)
 
+        df = get_history_mesures()
+
+        # =========================
+        # SAFE CHECK
+        # =========================
         if df is None or df.empty:
             return {"error": "no data"}
 
-        df = df.tail(100)
+        # =========================
+        # CLEAN TIMESTAMP
+        # =========================
+        df = clean_timestamp(df)
 
-        required = ["timestamp","pm25","pm10","co2","nox","sox","nhx"]
+        if df.empty:
+            return {"error": "no valid data"}
 
-        missing = [c for c in required if c not in df.columns]
-        if missing:
-            return {"error": "missing columns", "message": missing}
+        # =========================
+        # SORT + LIMIT
+        # =========================
+        df = df.sort_values("timestamp").tail(100)
 
-        df = df.fillna(0)
+        required = ["timestamp", "pm25", "pm10", "co2", "nox", "sox", "nhx"]
 
+        # =========================
+        # ENSURE COLUMNS EXIST
+        # =========================
+        for c in required:
+            if c not in df.columns:
+                df[c] = 0.0
+
+        # =========================
+        # NUMERIC SAFE CONVERSION
+        # =========================
+        cols = ["pm25", "pm10", "co2", "nox", "sox", "nhx"]
+        df[cols] = df[cols].apply(pd.to_numeric, errors="coerce").fillna(0)
+
+        # =========================
+        # FORMAT TIMESTAMP SAFE
+        # =========================
+        df["timestamp"] = df["timestamp"].dt.strftime("%Y-%m-%d %H:%M:%S")
+
+        # =========================
+        # RESPONSE
+        # =========================
         return {
-            "labels": df["timestamp"].astype(str).tolist(),
+            "labels": df["timestamp"].tolist(),
             "pm25": df["pm25"].tolist(),
             "pm10": df["pm10"].tolist(),
             "co2": df["co2"].tolist(),
@@ -995,6 +1092,7 @@ def realtime():
 
     except Exception as e:
         return {"error": str(e)}
+
     
 def pollutant_score(value, limit):
 
