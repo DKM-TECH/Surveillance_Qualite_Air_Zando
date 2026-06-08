@@ -2,8 +2,9 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from xgboost import XGBRegressor
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.multioutput import MultiOutputRegressor
+
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import joblib
 
@@ -11,7 +12,7 @@ import joblib
 # LOAD DATA
 # =========================
 
-df = pd.read_csv("dataset_air.csv")
+df = pd.read_csv("dataset_airBrut.csv")
 
 target_cols = [
     "pm25",
@@ -88,15 +89,13 @@ X_test_flat = X_test.reshape(X_test.shape[0], -1)
 # MODEL
 # =========================
 
-base_model = XGBRegressor(
-    n_estimators=1000,
-    learning_rate=0.03,
-    max_depth=8,
-    min_child_weight=3,
-    subsample=0.8,
-    colsample_bytree=0.8,
-    objective="reg:squarederror",
-    random_state=42
+base_model = RandomForestRegressor(
+    n_estimators=200,
+    max_depth=12,
+    min_samples_split=5,
+    min_samples_leaf=2,
+    random_state=42,
+    n_jobs=-1
 )
 
 model = MultiOutputRegressor(base_model)
@@ -179,7 +178,12 @@ plt.show()
 # =========================
 # SAVE MODEL
 # =========================
-joblib.dump(model, "air_xgb_model.pkl", compress=3)
-joblib.dump(feature_cols, "feature_cols.pkl", compress=3)
+joblib.dump(
+    model,
+    "air_xgb_model.pkl",
+    compress=("xz", 9)
+)
+
+joblib.dump(feature_cols, "feature_cols.pkl", compress=("xz", 9))
 
 print("\nMODEL XGBOOST OK ✔️")
