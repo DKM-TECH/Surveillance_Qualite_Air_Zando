@@ -405,7 +405,6 @@ def dataset_page(request: Request):
             "stats": stats
         }
     )
-
 @app.get("/api/dataset")
 def dataset_api():
 
@@ -428,8 +427,13 @@ def dataset_api():
             "stats": {}
         }
 
-    df = df.sort_values("timestamp", ascending=True).tail(500)
+    # ✅ TRI STRICT : dernier entré = première ligne
+    df = df.sort_values("timestamp", ascending=False)
 
+    # (optionnel mais recommandé pour éviter explosion mémoire)
+    df = df.head(500)
+
+    # format JSON safe
     df["timestamp"] = df["timestamp"].dt.strftime("%Y-%m-%dT%H:%M:%S")
 
     pollutants = ["pm25", "pm10", "co2", "nox", "sox", "nhx"]
@@ -448,6 +452,7 @@ def dataset_api():
         "data": df.to_dict(orient="records"),
         "stats": stats
     }
+
 
 from functools import lru_cache
 @lru_cache(maxsize=1)
