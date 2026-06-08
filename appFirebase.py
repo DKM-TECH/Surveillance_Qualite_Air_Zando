@@ -599,8 +599,21 @@ def apriori_page(request: Request):
                         rules[col] = rules[col].round(3)
 
                     rules = rules.sort_values(by="lift", ascending=False).head(50)
+                    
+                    metrics_cols = [
+                        "antecedents",
+                        "consequents",
+                        "support",
+                        "confidence",
+                        "lift",
+                        "leverage",
+                        "conviction"
+                        ]
 
-                    rules_html = rules.to_dict(orient="records")
+                    rules_html = rules[metrics_cols].to_dict(
+                    orient="records"
+                    )
+                    #rules_html = rules.to_dict(orient="records")
 
                     counts = rules["antecedents"].explode().value_counts()
                     if not counts.empty:
