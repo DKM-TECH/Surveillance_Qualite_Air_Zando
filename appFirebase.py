@@ -412,23 +412,41 @@ def dataset_api():
     df = get_history_mesures()
 
     if df is None or df.empty:
-        return {"rows": 0, "data": []}
+        return {
+            "rows": 0,
+            "data": [],
+            "stats": {}
+        }
 
     df = clean_timestamp(df)
     df = df.dropna(subset=["timestamp"])
 
     if df.empty:
-        return {"rows": 0, "data": []}
+        return {
+            "rows": 0,
+            "data": [],
+            "stats": {}
+        }
 
-    # 🔥 TRI CORRECT (plus récent d'abord)
-    df = df.sort_values("timestamp", ascending=False).head(500)
+    df = df.sort_values("timestamp", ascending=True).tail(500)
 
-    # ISO format pour JS
     df["timestamp"] = df["timestamp"].dt.strftime("%Y-%m-%dT%H:%M:%S")
+
+    pollutants = ["pm25", "pm10", "co2", "nox", "sox", "nhx"]
+
+    stats = {}
+    for col in pollutants:
+        if col in df.columns:
+            stats[col] = {
+                "min": float(df[col].min()),
+                "max": float(df[col].max()),
+                "avg": float(df[col].mean())
+            }
 
     return {
         "rows": len(df),
-        "data": df.to_dict(orient="records")
+        "data": df.to_dict(orient="records"),
+        "stats": stats
     }
 
 from functools import lru_cache

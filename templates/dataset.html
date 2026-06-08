@@ -112,10 +112,10 @@ nav a:hover {
         <a href="/rapport">Rapport analyse</a>
         <a href="/dataset">Tableau de données</a>
 </nav>
-<h1>Dataset Qualité de l'Air</h1>
+<h1>Données brutes (Dataset) via Capteurs</h1>
 
 <p>
-Nombre total d'enregistrements : <b>{{ total }}</b>
+Nombre total d'enregistrements : <b id="total-count">{{ total }}</b>
 </p>
 <div class="top-bar">
 
@@ -124,23 +124,53 @@ Nombre total d'enregistrements : <b>{{ total }}</b>
     </a>
 
 </div>
+
 <div class="stats-grid">
 
-    {% for pol, values in stats.items() %}
+   <div class="card" data-pol="pm25">
+    <h3>PM2.5</h3>
+    <p>Min : <span class="min">0</span></p>
+    <p>Moy : <span class="avg">0</span></p>
+    <p>Max : <span class="max">0</span></p>
+   </div>
 
-    <div class="card">
+   <div class="card" data-pol="pm10">
+    <h3>PM10</h3>
+    <p>Min : <span class="min">0</span></p>
+    <p>Moy : <span class="avg">0</span></p>
+    <p>Max : <span class="max">0</span></p>
+   </div>
 
-        <h3>{{ pol.upper() }}</h3>
+   <div class="card" data-pol="co2">
+    <h3>CO2</h3>
+    <p>Min : <span class="min">0</span></p>
+    <p>Moy : <span class="avg">0</span></p>
+    <p>Max : <span class="max">0</span></p>
+   </div>
 
-        <p>Min : {{ values.min }}</p>
-        <p>Moy : {{ values.avg }}</p>
-        <p>Max : {{ values.max }}</p>
+   <div class="card" data-pol="nox">
+    <h3>NOx</h3>
+    <p>Min : <span class="min">0</span></p>
+    <p>Moy : <span class="avg">0</span></p>
+    <p>Max : <span class="max">0</span></p>
+   </div>
 
-    </div>
+   <div class="card" data-pol="sox">
+    <h3>SOx</h3>
+    <p>Min : <span class="min">0</span></p>
+    <p>Moy : <span class="avg">0</span></p>
+    <p>Max : <span class="max">0</span></p>
+   </div>
 
-    {% endfor %}
+   <div class="card" data-pol="nhx">
+    <h3>NHx</h3>
+    <p>Min : <span class="min">0</span></p>
+    <p>Moy : <span class="avg">0</span></p>
+    <p>Max : <span class="max">0</span></p>
+   </div>
 
 </div>
+
 <table>
 
 <thead>
@@ -159,66 +189,73 @@ Nombre total d'enregistrements : <b>{{ total }}</b>
 </tbody>
 </table>
 <script>
-
 function parseDate(ts) {
     if (!ts) return null;
-
     const d = new Date(ts);
-
-    if (isNaN(d.getTime())) return null;
-
-    return d;
+    return isNaN(d.getTime()) ? null : d;
 }
 
-async function loadDataset(){
+function updateStats(stats) {
 
-    const tbody = document.getElementById("dataset-body");
+    for (const pol in stats) {
 
-    const res = await fetch("/api/dataset");
-    const data = await res.json();
+        const card = document.querySelector(`.card[data-pol='${pol}']`);
+        if (!card) continue;
 
-    const rows = data.data || [];
-
-    // 🔥 important : reset tableau
-    tbody.innerHTML = "";
-
-    if (rows.length === 0) {
-        tbody.innerHTML = "<tr><td colspan='7'>Aucune donnée</td></tr>";
-        return;
+        card.querySelector(".min").innerText = stats[pol].min.toFixed(2);
+        card.querySelector(".avg").innerText = stats[pol].avg.toFixed(2);
+        card.querySelector(".max").innerText = stats[pol].max.toFixed(2);
     }
-
-    // tri safe
-    //rows.sort((a, b) => new Date(a.timestamp || 0) - new Date(b.timestamp || 0));
-
-    rows.forEach(row => {
-
-        const dateObj = parseDate(row.timestamp);
-
-        const dateText = dateObj
-            ? dateObj.toLocaleString()
-            : "Date invalide";
-
-        const tr = document.createElement("tr");
-
-        tr.innerHTML = `
-            <td>${dateText}</td>
-            <td>${row.pm25 ?? 0}</td>
-            <td>${row.pm10 ?? 0}</td>
-            <td>${row.co2 ?? 0}</td>
-            <td>${row.nox ?? 0}</td>
-            <td>${row.sox ?? 0}</td>
-            <td>${row.nhx ?? 0}</td>
-        `;
-
-        tbody.appendChild(tr);
-    });
 }
 
+let loading = false;
+
+async function loadDataset() {
+
+    if (loading) return;
+    loading = true;
+
+    try {
+
+        const res = await fetch("/api/dataset");
+        const data = await res.json();
+
+        const rows = data.data || [];
+
+        document.getElementById("total-count").innerText = data.rows;
+
+        if (data.stats) updateStats(data.stats);
+
+        const tbody = document.getElementById("dataset-body");
+        tbody.innerHTML = "";
+
+        rows.forEach(row => {
+
+            const dateObj = parseDate(row.timestamp);
+
+            const tr = document.createElement("tr");
+
+            tr.innerHTML = `
+                <td>${dateObj ? dateObj.toLocaleString() : "Date invalide"}</td>
+                <td>${row.pm25 ?? 0}</td>
+                <td>${row.pm10 ?? 0}</td>
+                <td>${row.co2 ?? 0}</td>
+                <td>${row.nox ?? 0}</td>
+                <td>${row.sox ?? 0}</td>
+                <td>${row.nhx ?? 0}</td>
+            `;
+
+            tbody.appendChild(tr);
+        });
+
+    } finally {
+        loading = false;
+    }
+}
 document.addEventListener("DOMContentLoaded", () => {
     loadDataset();
     setInterval(loadDataset, 5000);
 });
-
 </script>
 
 </body>
