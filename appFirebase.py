@@ -258,7 +258,7 @@ def test():
 @app.get("/gauges", response_class=HTMLResponse)
 def gauges(request: Request):
 
-    row = get_mesures()
+    df = get_mesures()
 
     mesures = {
         "PM2.5": 0,
@@ -281,8 +281,8 @@ def gauges(request: Request):
     etat = "AIR INCONNU"
     message = "Pas de données"
 
-    # ✅ correction ici
-    if not row:
+    # ✅ FIX CRUCIAL
+    if df is None or df.empty:
         return templates.TemplateResponse(
             "gauges.html",
             {
@@ -295,6 +295,9 @@ def gauges(request: Request):
         )
 
     try:
+        df = df.sort_values("timestamp", ascending=False)
+        row = df.iloc[0]
+
         correspondance = {
             "PM2.5": "pm25",
             "PM10": "pm10",
