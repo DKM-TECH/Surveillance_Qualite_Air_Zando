@@ -356,7 +356,6 @@ def dataset_page(request: Request):
     df = get_history_mesures()
 
     if df is None or df.empty:
-        df = pd.DataFrame()
         return templates.TemplateResponse(
             "dataset.html",
             {
@@ -368,8 +367,6 @@ def dataset_page(request: Request):
         )
 
     df = clean_timestamp(df)
-
-    # 🔥 FORCE: éliminer tout ce qui n'est pas valide
     df = df.dropna(subset=["timestamp"])
 
     if df.empty:
@@ -385,8 +382,8 @@ def dataset_page(request: Request):
 
     df = df.sort_values("timestamp", ascending=False)
 
-    # 🔥 conversion SAFE (OBLIGATOIRE)
-    df["timestamp"] = df["timestamp"].astype(str)
+    # 🔥 IMPORTANT: format ISO standard (FRONTEND SAFE)
+    df["timestamp"] = df["timestamp"].dt.strftime("%Y-%m-%dT%H:%M:%S")
 
     stats = {}
     pollutants = ["pm25", "pm10", "co2", "nox", "sox", "nhx"]
@@ -425,8 +422,8 @@ def dataset_api():
 
     df = df.sort_values("timestamp", ascending=True).tail(500)
 
-    # 🔥 IMPORTANT : conversion SAFE
-    df["timestamp"] = df["timestamp"].astype(str)
+    # 🔥 FORMAT ISO STRICT (IMPORTANT POUR JS)
+    df["timestamp"] = df["timestamp"].dt.strftime("%Y-%m-%dT%H:%M:%S")
 
     return {
         "rows": len(df),

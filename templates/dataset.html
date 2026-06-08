@@ -158,56 +158,67 @@ Nombre total d'enregistrements : <b>{{ total }}</b>
 <!-- rempli dynamiquement -->
 </tbody>
 </table>
-
 <script>
+
+function parseDate(ts) {
+    if (!ts) return null;
+
+    const d = new Date(ts);
+
+    if (isNaN(d.getTime())) return null;
+
+    return d;
+}
 
 async function loadDataset(){
 
     const tbody = document.getElementById("dataset-body");
 
-    console.log("tbody =", tbody); // 🔥 doit être un élément
-
     const res = await fetch("/api/dataset");
     const data = await res.json();
 
-    console.log("API DATA:", data);
+    const rows = data.data || [];
 
-    //const rows = data.data;
-    const rows = data.data.sort((a, b) => a.timestamp - b.timestamp);
-    console.log("ROWS LENGTH:", rows.length);
-
+    // 🔥 important : reset tableau
     tbody.innerHTML = "";
 
-    if (!rows || rows.length === 0) {
+    if (rows.length === 0) {
         tbody.innerHTML = "<tr><td colspan='7'>Aucune donnée</td></tr>";
         return;
     }
 
+    // tri safe
+    rows.sort((a, b) => new Date(a.timestamp || 0) - new Date(b.timestamp || 0));
+
     rows.forEach(row => {
 
-    const date = new Date(row.timestamp * 1000);
+        const dateObj = parseDate(row.timestamp);
 
-    const tr = document.createElement("tr");
+        const dateText = dateObj
+            ? dateObj.toLocaleString()
+            : "Date invalide";
 
-    tr.innerHTML = `
-        <td>${date.toLocaleString()}</td>
-        <td>${row.pm25}</td>
-        <td>${row.pm10}</td>
-        <td>${row.co2}</td>
-        <td>${row.nox}</td>
-        <td>${row.sox}</td>
-        <td>${row.nhx}</td>
-    `;
+        const tr = document.createElement("tr");
 
-    tbody.appendChild(tr);
-});
+        tr.innerHTML = `
+            <td>${dateText}</td>
+            <td>${row.pm25 ?? 0}</td>
+            <td>${row.pm10 ?? 0}</td>
+            <td>${row.co2 ?? 0}</td>
+            <td>${row.nox ?? 0}</td>
+            <td>${row.sox ?? 0}</td>
+            <td>${row.nhx ?? 0}</td>
+        `;
 
+        tbody.appendChild(tr);
+    });
 }
 
 document.addEventListener("DOMContentLoaded", () => {
     loadDataset();
     setInterval(loadDataset, 5000);
 });
+
 </script>
 
 </body>
