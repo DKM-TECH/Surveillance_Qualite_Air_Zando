@@ -357,20 +357,38 @@ def dataset_page(request: Request):
 
     if df is None or df.empty:
         df = pd.DataFrame()
-    else:
-        df = clean_timestamp(df)
+        return templates.TemplateResponse(
+            "dataset.html",
+            {
+                "request": request,
+                "rows": [],
+                "total": 0,
+                "stats": {}
+            }
+        )
 
-        # 🔥 sécurité : supprimer NaT
-        df = df.dropna(subset=["timestamp"])
+    df = clean_timestamp(df)
 
-        # tri
-        df = df.sort_values("timestamp", ascending=False)
+    # 🔥 FORCE: éliminer tout ce qui n'est pas valide
+    df = df.dropna(subset=["timestamp"])
 
-        # 🔥 conversion SAFE pour frontend
-        df["timestamp"] = df["timestamp"].dt.strftime("%Y-%m-%d %H:%M:%S")
+    if df.empty:
+        return templates.TemplateResponse(
+            "dataset.html",
+            {
+                "request": request,
+                "rows": [],
+                "total": 0,
+                "stats": {}
+            }
+        )
+
+    df = df.sort_values("timestamp", ascending=False)
+
+    # 🔥 conversion SAFE (OBLIGATOIRE)
+    df["timestamp"] = df["timestamp"].astype(str)
 
     stats = {}
-
     pollutants = ["pm25", "pm10", "co2", "nox", "sox", "nhx"]
 
     for col in pollutants:
@@ -401,11 +419,13 @@ def dataset_api():
 
     df = clean_timestamp(df)
     df = df.dropna(subset=["timestamp"])
-    df = df.sort_values("timestamp", ascending=True)
 
-    df = df.tail(500)
+    if df.empty:
+        return {"rows": 0, "data": []}
 
-    # 🔥 IMPORTANT : conversion JSON SAFE
+    df = df.sort_values("timestamp", ascending=True).tail(500)
+
+    # 🔥 IMPORTANT : conversion SAFE
     df["timestamp"] = df["timestamp"].astype(str)
 
     return {
