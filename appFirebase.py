@@ -420,9 +420,10 @@ def dataset_api():
     if df.empty:
         return {"rows": 0, "data": []}
 
-    df = df.sort_values("timestamp", ascending=True).tail(500)
+    # 🔥 TRI CORRECT (plus récent d'abord)
+    df = df.sort_values("timestamp", ascending=False).head(500)
 
-    # 🔥 FORMAT ISO STRICT (IMPORTANT POUR JS)
+    # ISO format pour JS
     df["timestamp"] = df["timestamp"].dt.strftime("%Y-%m-%dT%H:%M:%S")
 
     return {
