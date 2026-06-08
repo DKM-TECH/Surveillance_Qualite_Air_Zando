@@ -575,7 +575,7 @@ def apriori_page(request: Request):
 
             frequent_itemsets = apriori(
                 df_bin,
-                min_support=0.1,
+                min_support=0.3,
                 use_colnames=True,
                 max_len=3
             )
