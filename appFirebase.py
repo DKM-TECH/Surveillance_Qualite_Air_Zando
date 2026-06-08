@@ -255,10 +255,20 @@ def test():
         "message": "API OK"
     }
 
+def get_latest_row():
+    df = get_mesures()
+
+    if df is None or df.empty:
+        return None
+
+    df = df.sort_values("timestamp", ascending=False)
+    return df.iloc[0]
+
+
 @app.get("/gauges", response_class=HTMLResponse)
 def gauges(request: Request):
 
-    df = get_mesures()
+    df = get_latest_row()
 
     mesures = {
         "PM2.5": 0,
