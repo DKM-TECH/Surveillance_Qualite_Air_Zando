@@ -233,21 +233,20 @@ def home(request: Request):
 
 @app.get("/api/live")
 def api_live():
-    df = get_mesures()
+    row = get_latest_row()
 
-    if df is None or df.empty:
+    if row is None:
         return {}
 
-    row = df.iloc[0]
-
     return {
-        "pm25": float(row.get("pm25", 0)),
-        "pm10": float(row.get("pm10", 0)),
-        "co2": float(row.get("co2", 0)),
-        "nox": float(row.get("nox", 0)),
-        "sox": float(row.get("sox", 0)),
-        "nhx": float(row.get("nhx", 0))
+        "pm25": float(row.get("pm25", 0) or 0),
+        "pm10": float(row.get("pm10", 0) or 0),
+        "co2": float(row.get("co2", 0) or 0),
+        "nox": float(row.get("nox", 0) or 0),
+        "sox": float(row.get("sox", 0) or 0),
+        "nhx": float(row.get("nhx", 0) or 0)
     }
+
 
 @app.get("/test")
 def test():
@@ -261,8 +260,14 @@ def get_latest_row():
     if df is None or df.empty:
         return None
 
-    df = df.sort_values("timestamp", ascending=False)
+    if "timestamp" in df.columns:
+        df = df.sort_values(
+            by="timestamp",
+            ascending=False
+        )
+
     return df.iloc[0]
+
 
 
 @app.get("/gauges", response_class=HTMLResponse)
@@ -336,7 +341,9 @@ def gauges(request: Request):
             message = "Qualité normale"
 
     except Exception as e:
-        print("GAUGES ERROR:", e)
+        print("GAUGES ERROR:", repr(e))
+        import traceback
+        traceback.print_exc()
 
     return templates.TemplateResponse(
         "gauges.html",

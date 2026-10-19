@@ -57,6 +57,21 @@
             font-weight:bold;
             background:#28a745;
         }
+        .etat.sain {
+            background: #28a745;
+        }
+
+        .etat.pollue {
+            background: #f39c12;
+        }
+
+        .etat.dangereux {
+            background: #dc3545;
+        }
+
+        .etat.inconnu {
+            background: #6c757d;
+        }
 
         .message{
             text-align:center;
@@ -93,12 +108,12 @@
 
     <h1>Qualité de l’air</h1>
 
-    <div class="etat">
-        {{ etat }}
+    <div class="etat" id="etat">
+    {{ etat }}
     </div>
 
-    <div class="message">
-        {{ message }}
+    <div class="message" id="message">
+    {{ message }}
     </div>
 
     <div class="gauges">
@@ -145,13 +160,16 @@ const seuils = {
 };
 
 function couleur(val, seuil){
+
     const ratio = val / seuil;
 
     if(ratio >= 3) return "darkred";
     if(ratio >= 2) return "red";
     if(ratio >= 1) return "orange";
+
     return "green";
 }
+
 
 function afficherGauge(pol, val){
 
@@ -161,42 +179,209 @@ function afficherGauge(pol, val){
         type: "indicator",
         mode: "gauge+number",
         value: val,
-        title: { text: pol.toUpperCase() },
+
+        title: {
+            text: pol.toUpperCase()
+        },
+
         gauge: {
-            axis: { range: [0, Math.max(val * 2, seuils[pol] * 3)] },
-            bar: { color: couleur(val, seuils[pol]) }
+            axis: {
+                range: [
+                    0,
+                    Math.max(
+                        val * 2,
+                        seuils[pol] * 3
+                    )
+                ]
+            },
+
+            bar: {
+                color: couleur(
+                    val,
+                    seuils[pol]
+                )
+            }
         }
+
     }], {
+
         paper_bgcolor:"#1e293b",
-        font:{ color:"white" },
-        margin: { t: 40, b: 20, l: 20, r: 20 },
-        transition: { duration: 500 }   // ✔️ ICI au bon endroit
+
+        font:{
+            color:"white"
+        },
+
+        margin:{
+            t:40,
+            b:20,
+            l:20,
+            r:20
+        },
+
+        transition:{
+            duration:500
+        }
     });
 }
+
+
+/* ==========================================
+   CALCUL DE L'ÉTAT DE LA QUALITÉ DE L'AIR
+   ========================================== */
+
+function mettreAJourEtat(data){
+
+    const depassements = [];
+
+    for(const pol in seuils){
+
+        const valeur = Number(data[pol] ?? 0);
+
+        if(valeur > seuils[pol]){
+            depassements.push(pol);
+        }
+    }
+
+
+    const elementEtat = document.getElementById("etat");
+    const elementMessage = document.getElementById("message");
+
+
+    /* Aucun dépassement */
+
+    if(depassements.length === 0){
+
+        elementEtat.textContent = "AIR SAIN";
+
+        elementMessage.textContent =
+            "Qualité normale";
+
+        elementEtat.className = "etat sain";
+
+    }
+
+
+    /* 1 ou 2 polluants dépassent */
+
+    else if(depassements.length < 3){
+
+        elementEtat.textContent =
+            "AIR POLLUÉ";
+
+        elementMessage.textContent =
+            "Air dégradé";
+
+        elementEtat.className =
+            "etat pollue";
+
+    }
+
+
+    /* 3 polluants ou plus */
+
+    else {
+
+        elementEtat.textContent =
+            "DANGEREUX";
+
+        elementMessage.textContent =
+            "⚠️ Pollution critique";
+
+        elementEtat.className =
+            "etat dangereux";
+    }
+
+
+    console.log(
+        "Polluants dépassant les seuils :",
+        depassements
+    );
+}
+
+
+/* ==========================================
+   RÉCUPÉRATION DES DONNÉES
+   ========================================== */
 
 async function chargerDonnees(){
 
     try {
+
         const response = await fetch("/api/live");
+
+        if(!response.ok){
+
+            throw new Error(
+                "Erreur HTTP : " + response.status
+            );
+        }
+
+
         const data = await response.json();
 
-        console.log("LIVE DATA:", data);
-        console.log("KEYS:", Object.keys(data));
-        console.log("DOM CHECK pm25:", document.getElementById("pm25_gauge"));
+
+        console.log(
+            "LIVE DATA:",
+            data
+        );
+
+
+        console.log(
+            "KEYS:",
+            Object.keys(data)
+        );
+
+
+        /* Mise à jour de l'état */
+
+        mettreAJourEtat(data);
+
+
+        /* Mise à jour des jauges */
+
         for(const pol in data){
-            const el = document.getElementById(pol + "_gauge");
+
+            const el =
+                document.getElementById(
+                    pol + "_gauge"
+                );
+
+
             if(el){
-                afficherGauge(pol, data[pol]);
+
+                const valeur =
+                    Number(data[pol] ?? 0);
+
+                afficherGauge(
+                    pol,
+                    valeur
+                );
             }
         }
 
-    } catch (error) {
-        console.log("FETCH ERROR:", error);
+
+    } catch(error){
+
+        console.error(
+            "FETCH ERROR:",
+            error
+        );
+
     }
 }
 
+
+/* Chargement initial */
+
 chargerDonnees();
-setInterval(chargerDonnees, 5000);
+
+
+/* Actualisation toutes les 5 secondes */
+
+setInterval(
+    chargerDonnees,
+    5000
+);
 
 </script>
 
