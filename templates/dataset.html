@@ -1,261 +1,362 @@
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<head>
-<meta charset="UTF-8">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Dataset Qualité de l'Air</title>
+    <title>Dataset Qualité de l'Air</title>
 
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: center;
+        }
+
+        th {
+            background: #2563eb;
+            color: white;
+        }
+
+        tr:nth-child(even) {
+            background: #f5f5f5;
+        }
+
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .btn-download {
+            background: #22c55e;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .btn-download:hover {
+            opacity: 0.9;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        nav {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            background: rgba(17, 24, 39, 0.95);
+            padding: 12px 0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        nav a {
+            color: #cbd5e1;
+            text-decoration: none;
+            font-weight: 600;
+            padding: 8px 15px;
+            border-radius: 8px;
+        }
+
+        nav a:hover {
+            background: #38bdf8;
+            color: #0b1220;
+        }
+
+        .card {
+            background: #0f172a;
+            color: white;
+            padding: 15px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .card h3 {
+            color: #38bdf8;
+            margin-bottom: 10px;
+        }
+
+        #error-message {
+            color: #b91c1c;
+            background: #fee2e2;
+            padding: 12px;
+            border-radius: 8px;
+            display: none;
+            margin-bottom: 15px;
+        }
+
+        #loading-message {
+            margin: 12px 0;
+            color: #475569;
+        }
+
+        .table-container {
+            overflow-x: auto;
+        }
+    </style>
 </head>
 
-<style>
-body{
-    font-family:Arial;
-    padding:20px;
-}
-
-table{
-    width:100%;
-    border-collapse:collapse;
-}
-
-th,td{
-    border:1px solid #ccc;
-    padding:8px;
-    text-align:center;
-}
-
-th{
-    background:#2563eb;
-    color:white;
-}
-
-tr:nth-child(even){
-    background:#f5f5f5;
-}
-.top-bar{
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    margin-bottom:20px;
-}
-
-.btn-download{
-    background:#22c55e;
-    color:white;
-    padding:12px 20px;
-    border-radius:10px;
-    text-decoration:none;
-    font-weight:bold;
-}
-
-.btn-download:hover{
-    opacity:0.9;
-}
-
-.stats-grid{
-    display:grid;
-    grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
-    gap:15px;
-    margin-bottom:25px;
-}
-
-/* NAV */
-nav {
-  display: flex;
-  justify-content: center;
-  gap: 20px;
-  background: rgba(17, 24, 39, 0.95);
-  padding: 12px 0;
-  position: sticky;
-  top: 0;
-  z-index: 1000;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-}
-
-nav a {
-  color: #cbd5e1;
-  text-decoration: none;
-  font-weight: 600;
-  padding: 8px 15px;
-  border-radius: 8px;
-  transition: 0.3s;
-}
-
-nav a:hover {
-  background: #38bdf8;
-  color: #0b1220;
-}
-
-
-.card{
-    background:#0f172a;
-    color:white;
-    padding:15px;
-    border-radius:12px;
-    text-align:center;
-}
-
-.card h3{
-    color:#38bdf8;
-    margin-bottom:10px;
-}
-
-</style>
-</head>
 <body>
+
 <nav>
-        <a href="/">Accueil</a>
-        <a href="/gauges">Données réelles</a>
-        <a href="/prediction">Prédiction IA</a>
-        <a href="/apriori">Association IA</a>
-        <a href="/rapport">Rapport analyse</a>
-        <a href="/dataset">Tableau de données</a>
+    <a href="/">Accueil</a>
+    <a href="/gauges">Données réelles</a>
+    <a href="/prediction">Prédiction IA</a>
+    <a href="/apriori">Association IA</a>
+    <a href="/rapport">Rapport analyse</a>
+    <a href="/dataset">Tableau de données</a>
 </nav>
+
 <h1>Données brutes (Dataset) via Capteurs</h1>
 
 <p>
-Nombre total d'enregistrements : <b id="total-count">{{ total }}</b>
+    Nombre total d'enregistrements :
+    <b id="total-count">{{ total }}</b>
 </p>
-<div class="top-bar">
 
+<div class="top-bar">
     <a href="/export-dataset" class="btn-download">
         Télécharger CSV
     </a>
-
 </div>
+
+<div id="error-message"></div>
+<div id="loading-message">Chargement des données...</div>
 
 <div class="stats-grid">
 
-   <div class="card" data-pol="pm25">
-    <h3>PM2.5</h3>
-    <p>Min : <span class="min">0</span></p>
-    <p>Moy : <span class="avg">0</span></p>
-    <p>Max : <span class="max">0</span></p>
-   </div>
-
-   <div class="card" data-pol="pm10">
-    <h3>PM10</h3>
-    <p>Min : <span class="min">0</span></p>
-    <p>Moy : <span class="avg">0</span></p>
-    <p>Max : <span class="max">0</span></p>
-   </div>
-
-   <div class="card" data-pol="co2">
-    <h3>CO2</h3>
-    <p>Min : <span class="min">0</span></p>
-    <p>Moy : <span class="avg">0</span></p>
-    <p>Max : <span class="max">0</span></p>
-   </div>
-
-   <div class="card" data-pol="nox">
-    <h3>NOx</h3>
-    <p>Min : <span class="min">0</span></p>
-    <p>Moy : <span class="avg">0</span></p>
-    <p>Max : <span class="max">0</span></p>
-   </div>
-
-   <div class="card" data-pol="sox">
-    <h3>SOx</h3>
-    <p>Min : <span class="min">0</span></p>
-    <p>Moy : <span class="avg">0</span></p>
-    <p>Max : <span class="max">0</span></p>
-   </div>
-
-   <div class="card" data-pol="nhx">
-    <h3>NHx</h3>
-    <p>Min : <span class="min">0</span></p>
-    <p>Moy : <span class="avg">0</span></p>
-    <p>Max : <span class="max">0</span></p>
-   </div>
+    {% for pol, label in [
+        ("pm25", "PM2.5"),
+        ("pm10", "PM10"),
+        ("co2", "CO2"),
+        ("nox", "NOx"),
+        ("sox", "SOx"),
+        ("nhx", "NHx")
+    ] %}
+    <div class="card" data-pol="{{ pol }}">
+        <h3>{{ label }}</h3>
+        <p>Min : <span class="min">0</span></p>
+        <p>Moy : <span class="avg">0</span></p>
+        <p>Max : <span class="max">0</span></p>
+    </div>
+    {% endfor %}
 
 </div>
 
-<table>
+<div class="table-container">
+    <table>
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>PM2.5</th>
+                <th>PM10</th>
+                <th>CO2</th>
+                <th>NOx</th>
+                <th>SOx</th>
+                <th>NHx</th>
+            </tr>
+        </thead>
 
-<thead>
-<tr>
-    <th>Date</th>
-    <th>PM2.5</th>
-    <th>PM10</th>
-    <th>CO2</th>
-    <th>NOx</th>
-    <th>SOx</th>
-    <th>NHx</th>
-</tr>
-</thead>
-<tbody id="dataset-body">
-<!-- rempli dynamiquement -->
-</tbody>
-</table>
+        <tbody id="dataset-body">
+        </tbody>
+    </table>
+</div>
+
 <script>
+
 function parseDate(ts) {
     if (!ts) return null;
+
     const d = new Date(ts);
+
     return isNaN(d.getTime()) ? null : d;
 }
 
+
+// Mise à jour des statistiques
 function updateStats(stats) {
 
-    for (const pol in stats) {
+    const pollutants = [
+        "pm25", "pm10", "co2",
+        "nox", "sox", "nhx"
+    ];
 
-        const card = document.querySelector(`.card[data-pol='${pol}']`);
-        if (!card) continue;
+    pollutants.forEach(pol => {
 
-        card.querySelector(".min").innerText = stats[pol].min.toFixed(2);
-        card.querySelector(".avg").innerText = stats[pol].avg.toFixed(2);
-        card.querySelector(".max").innerText = stats[pol].max.toFixed(2);
-    }
+        const card = document.querySelector(
+            `.card[data-pol="${pol}"]`
+        );
+
+        if (!card) return;
+
+        const values = stats?.[pol];
+
+        if (!values) return;
+
+        card.querySelector(".min").textContent =
+            Number(values.min ?? 0).toFixed(2);
+
+        card.querySelector(".avg").textContent =
+            Number(values.avg ?? 0).toFixed(2);
+
+        card.querySelector(".max").textContent =
+            Number(values.max ?? 0).toFixed(2);
+    });
 }
+
+
+// Création sécurisée des cellules
+function addCell(tr, value) {
+
+    const td = document.createElement("td");
+
+    td.textContent = value ?? 0;
+
+    tr.appendChild(td);
+}
+
 
 let loading = false;
 
+
+// Chargement du dataset
 async function loadDataset() {
 
     if (loading) return;
+
     loading = true;
+
+    const errorBox = document.getElementById("error-message");
+    const loadingMessage = document.getElementById("loading-message");
 
     try {
 
-        const res = await fetch("/api/dataset");
-        const data = await res.json();
+        errorBox.style.display = "none";
 
-        const rows = data.data || [];
+        const response = await fetch("/api/dataset", {
+            headers: {
+                "Accept": "application/json"
+            },
+            cache: "no-store"
+        });
 
-        document.getElementById("total-count").innerText = data.rows;
+        // Lire la réponse sous forme de texte pour diagnostiquer
+        const responseText = await response.text();
 
-        if (data.stats) updateStats(data.stats);
+        console.log("HTTP STATUS :", response.status);
+        console.log("SERVER RESPONSE :", responseText);
+
+        // Vérifier le statut HTTP
+        if (!response.ok) {
+            throw new Error(
+                "Erreur HTTP " + response.status +
+                " : " + responseText.substring(0, 500)
+            );
+        }
+
+        // Convertir le texte en JSON
+        let data;
+
+        try {
+            data = JSON.parse(responseText);
+        } catch (error) {
+            throw new Error(
+                "Le serveur n'a pas renvoyé un JSON valide."
+            );
+        }
+
+        // Vérification de la structure
+        if (!Array.isArray(data.data)) {
+            throw new Error(
+                "Format de réponse incorrect : tableau data absent."
+            );
+        }
+
+        const rows = data.data;
+
+        document.getElementById("total-count").textContent =
+            data.rows ?? rows.length;
+
+        updateStats(data.stats ?? {});
 
         const tbody = document.getElementById("dataset-body");
+
         tbody.innerHTML = "";
 
         rows.forEach(row => {
 
-            const dateObj = parseDate(row.timestamp);
-
             const tr = document.createElement("tr");
 
-            tr.innerHTML = `
-                <td>${dateObj ? dateObj.toLocaleString() : "Date invalide"}</td>
-                <td>${row.pm25 ?? 0}</td>
-                <td>${row.pm10 ?? 0}</td>
-                <td>${row.co2 ?? 0}</td>
-                <td>${row.nox ?? 0}</td>
-                <td>${row.sox ?? 0}</td>
-                <td>${row.nhx ?? 0}</td>
-            `;
+            const dateObj = parseDate(row.timestamp);
+
+            addCell(
+                tr,
+                dateObj
+                    ? dateObj.toLocaleString("fr-FR")
+                    : "Date invalide"
+            );
+
+            addCell(tr, row.pm25);
+            addCell(tr, row.pm10);
+            addCell(tr, row.co2);
+            addCell(tr, row.nox);
+            addCell(tr, row.sox);
+            addCell(tr, row.nhx);
 
             tbody.appendChild(tr);
         });
 
+        loadingMessage.textContent =
+            "Dernière actualisation : " +
+            new Date().toLocaleTimeString("fr-FR");
+
+    } catch (error) {
+
+        console.error("DATASET ERROR :", error);
+
+        errorBox.textContent = error.message;
+        errorBox.style.display = "block";
+
+        loadingMessage.textContent =
+            "Impossible de charger les données.";
+
     } finally {
+
         loading = false;
     }
 }
+
+
 document.addEventListener("DOMContentLoaded", () => {
+
     loadDataset();
+
     setInterval(loadDataset, 5000);
+
 });
+
 </script>
 
 </body>

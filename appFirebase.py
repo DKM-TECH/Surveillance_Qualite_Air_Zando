@@ -11,6 +11,9 @@ from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from supabase import create_client
+import math
+from datetime import date, datetime
+
 import os
 
 from mlxtend.frequent_patterns import apriori, association_rules
@@ -412,53 +415,136 @@ def dataset_page(request: Request):
             "stats": stats
         }
     )
+
+
+
 @app.get("/api/dataset")
 def dataset_api():
 
-    df = get_history_mesures()
+    try:
+        # 1. Récupération des données depuis Supabase
+        df = get_history_mesures()
 
-    if df is None or df.empty:
-        return {
-            "rows": 0,
-            "data": [],
-            "stats": {}
-        }
+        if df is None or df.empty:
+            return JSONResponse(
+                content={
+                    "rows": 0,
+                    "data": [],
+                    "stats": {},
+                    "message": "Aucune donnée disponible"
+                }
+            )
 
-    df = clean_timestamp(df)
-    df = df.dropna(subset=["timestamp"])
+        df = df.copy()
 
-    if df.empty:
-        return {
-            "rows": 0,
-            "data": [],
-            "stats": {}
-        }
+        # 2. Vérification de la colonne timestamp
+        if "timestamp" in df.columns:
 
-    # ✅ TRI STRICT : dernier entré = première ligne
-    df = df.sort_values("timestamp", ascending=False)
+            df = clean_timestamp(df)
 
-    # (optionnel mais recommandé pour éviter explosion mémoire)
-    df = df.head(500)
+            if not df.empty:
+                df = df.sort_values(
+                    by="timestamp",
+                    ascending=False
+                )
 
-    # format JSON safe
-    df["timestamp"] = df["timestamp"].dt.strftime("%Y-%m-%dT%H:%M:%S")
+                # Limiter à 500 enregistrements
+                df = df.head(500)
 
-    pollutants = ["pm25", "pm10", "co2", "nox", "sox", "nhx"]
+                # Conversion des dates en texte ISO
+                df["timestamp"] = df["timestamp"].apply(
+                    lambda x: x.isoformat() if pd.notnull(x) else None
+                )
 
-    stats = {}
-    for col in pollutants:
-        if col in df.columns:
-            stats[col] = {
-                "min": float(df[col].min()),
-                "max": float(df[col].max()),
-                "avg": float(df[col].mean())
+        # 3. Conversion numérique des polluants
+        pollutants = [
+            "pm25", "pm10", "co2",
+            "nox", "sox", "nhx"
+        ]
+
+        for col in pollutants:
+            if col in df.columns:
+                df[col] = pd.to_numeric(
+                    df[col],
+                    errors="coerce"
+                )
+
+        # 4. Calcul des statistiques
+        stats = {}
+
+        for col in pollutants:
+
+            if col not in df.columns:
+                continue
+
+            serie = df[col].dropna()
+
+            if not serie.empty:
+                stats[col] = {
+                    "min": round(float(serie.min()), 2),
+                    "max": round(float(serie.max()), 2),
+                    "avg": round(float(serie.mean()), 2)
+                }
+
+        # 5. Conversion des données en dictionnaires
+        records = df.to_dict(orient="records")
+
+        # 6. Nettoyage des valeurs non compatibles JSON
+        def make_json_safe(value):
+
+            if value is None:
+                return None
+
+            if isinstance(value, (pd.Timestamp, datetime, date)):
+                return value.isoformat()
+
+            try:
+                if pd.isna(value):
+                    return None
+            except (TypeError, ValueError):
+                pass
+
+            if hasattr(value, "item"):
+                value = value.item()
+
+            if isinstance(value, float):
+                if not math.isfinite(value):
+                    return None
+
+            return value
+
+        safe_records = []
+
+        for record in records:
+            safe_record = {
+                key: make_json_safe(value)
+                for key, value in record.items()
             }
+            safe_records.append(safe_record)
 
-    return {
-        "rows": len(df),
-        "data": df.to_dict(orient="records"),
-        "stats": stats
-    }
+        # 7. Réponse finale
+        return JSONResponse(
+            content={
+                "rows": len(safe_records),
+                "data": safe_records,
+                "stats": stats
+            }
+        )
+
+    except Exception as e:
+
+        import traceback
+
+        print("ERREUR API DATASET :")
+        traceback.print_exc()
+
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": "dataset_api_error",
+                "message": str(e)
+            }
+        )
 
 
 from functools import lru_cache
